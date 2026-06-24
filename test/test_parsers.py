@@ -112,6 +112,33 @@ def test_mitomut():
     assert parsers.is_common_deletion(r["bp5"], r["bp3"])
 
 
+def test_mitohpc():
+    # MitoHPC sv.tab (the reference caller); a real row from example/sv.tab.
+    content = (
+        "sample\tchrom\tpos_bp5\tend_bp3\tsvlen\tsvclaim\tjr\tsr\taf_junction\t"
+        "af_coverage\tafdiff\tcvgr\tflank_dp\thomlen\thomseq\tdelclass\tcommon\t"
+        "ngene\tgene_list\thgvs\tfilter\tflags\tsrcons\tsrsb\tjsup\tsvconf\t"
+        "svimpact\tsvimpact_band\n"
+        "sv_del4977_h30\tchrM\t8482\t13446\t4964\tDJ\t154\t401\t0.277\t0.268\t"
+        "0.010\t0.732\t575\t13\tACCTCCCTCACCA\tI\t1\t12\tATP8:P\t"
+        "NC_012920.1:m.8483_13446del\tPASS\tREPEAT\t1.000\t0.496\tHIGH\t83\t85\t"
+        "SEVERE\n")
+    path = _tmp(content)
+    recs = parsers.parse_mitohpc(path, sample="sv_del4977_h30")
+    os.unlink(path)
+    assert len(recs) == 1
+    r = recs[0]
+    assert r["caller"] == "mitohpc" and r["sv_type"] == "deletion"
+    assert r["bp5"] == 8482 and r["bp3"] == 13446 and r["svlen"] == 4964
+    assert abs(r["het"] - 0.268) < 1e-6 and r["support"] == 154
+    assert "filter=PASS" in r["extra"] and "flags=REPEAT" in r["extra"]
+    assert parsers.is_common_deletion(r["bp5"], r["bp3"])
+
+
+def test_mitohpc_first_in_callers():
+    assert parsers.CALLERS[0] == "mitohpc" and len(parsers.CALLERS) == 6
+
+
 def test_mitoseek_discordant():
     content = (
         "#MitoChr\tMitoPos\tVarChr\tVarPos\tSupportedReads\tMeanMappingQuality\t"

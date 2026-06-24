@@ -25,7 +25,8 @@ import os
 import re
 from statistics import median
 
-CALLERS = ["eklipse", "mitosalt", "splicebreak2", "mitomut", "mitoseek"]
+# mitohpc is the reference caller (MitoHPC's own SV caller); listed first.
+CALLERS = ["mitohpc", "eklipse", "mitosalt", "splicebreak2", "mitomut", "mitoseek"]
 
 # The classic ~4977 bp "common deletion" (m.8470_13447del). Callers place the
 # breakpoints anywhere inside the flanking 13 bp direct repeat, so we match with
@@ -278,6 +279,34 @@ def parse_mitoseek_large_deletion(path, sample=None, min_tlen=500, min_support=3
 
 
 # --------------------------------------------------------------------------- #
+# MitoHPC — <sample>.sv.tab  (tab, header row; the reference caller)
+# --------------------------------------------------------------------------- #
+def parse_mitohpc(path, sample=None):
+    out = []
+    if not path or not os.path.isfile(path):
+        return out
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        for row in reader:
+            bp5 = _to_int(row.get("pos_bp5"))
+            bp3 = _to_int(row.get("end_bp3"))
+            svlen = _to_int(row.get("svlen"))
+            # AFC (coverage dosage) is MitoHPC's primary heteroplasmy; fall back
+            # to AFJ (junction VAF) for junction-only calls where AFC is 0.
+            het = _to_float(row.get("af_coverage"))
+            if not het:
+                het = _to_float(row.get("af_junction"))
+            support = _to_float(row.get("jr"))      # junction-supporting reads
+            smp = sample or (row.get("sample") or "").strip() or "unknown"
+            filt = (row.get("filter") or "").strip()
+            flags = (row.get("flags") or "").strip()
+            out.append(_rec(smp, "mitohpc", "deletion", bp5, bp3, svlen,
+                            support, het,
+                            extra="filter=%s;flags=%s" % (filt, flags)))
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # Sample-directory dispatch
 # --------------------------------------------------------------------------- #
 def _first(globs):
@@ -293,6 +322,10 @@ def parse_sample_dir(sample_dir, sample=None):
     """Parse every caller's output found under one sample directory."""
     sample = sample or os.path.basename(os.path.normpath(sample_dir))
     records = []
+
+    mh = _first([os.path.join(sample_dir, "mitohpc", "mitohpc.sv.tab"),
+                 os.path.join(sample_dir, "mitohpc", "*.sv.tab")])
+    records += parse_mitohpc(mh, sample)
 
     ek = _first([os.path.join(sample_dir, "eklipse", "eKLIPse_deletions.csv")])
     records += parse_eklipse(ek, sample)

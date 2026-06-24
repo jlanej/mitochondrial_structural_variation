@@ -60,10 +60,11 @@ jobs:
       # Full scenario suite (all 10 mock BAMs + CRAM + real BAMs + degenerate
       # inputs) on main/tags; the quicker 3-sample subset on PRs to keep PR CI
       # snappy. Override locally with a 3rd arg: `bash test/smoke_test.sh IMG all quick`.
-      - name: Functional smoke test (scenario cohort)
+      - name: Functional smoke test (scenario cohort + comparison report)
         run: |
           SCOPE=full
           [[ "${{ github.event_name }}" == "pull_request" ]] && SCOPE=quick
+          export MITO_SV_GENERATED="$(date -u +%Y-%m-%d) (${GITHUB_SHA::12})"
           bash test/smoke_test.sh mito-sv:ci all "$SCOPE"
 
       - name: Log in to GHCR
@@ -91,21 +92,22 @@ jobs:
           echo "Published $IMG:latest and $IMG:$SHA"
 
       # The smoke test wrote refreshed example outputs + SMOKE_SUMMARY.md to
-      # test/example_output/. Commit them back so the repo always carries an
-      # up-to-date "what's working vs just running" view — even when the smoke
-      # test failed (a caller did not run), so the broken state is visible.
-      # [skip ci] keeps this from triggering another build. main-branch pushes only.
-      - name: Commit example outputs
+      # test/example_output/ and the interactive comparison report to
+      # docs/index.html. Commit them back so the repo always carries an
+      # up-to-date view — even when the smoke test failed (a caller did not run),
+      # so the broken state is visible. [skip ci] keeps this from triggering
+      # another build. main-branch pushes only.
+      - name: Commit example outputs + comparison report
         if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add test/example_output
+          git add test/example_output docs
           if git diff --cached --quiet; then
-            echo "No example-output changes to commit."
+            echo "No example-output / report changes to commit."
           else
-            git commit -m "ci: refresh example caller outputs [skip ci]"
+            git commit -m "ci: refresh example outputs + comparison report [skip ci]"
             git push origin "HEAD:${GITHUB_REF_NAME}" \
-              || echo "warn: could not push example outputs (non-fatal)"
+              || echo "warn: could not push outputs (non-fatal)"
           fi

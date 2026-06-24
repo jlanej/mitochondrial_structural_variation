@@ -3,6 +3,7 @@
 .github
 slurm
 test
+docs
 README.md
 *.md
 **/__pycache__

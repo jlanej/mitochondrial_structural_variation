@@ -4,7 +4,7 @@
 #
 # The only required argument is a directory of CRAM (and/or BAM) files. The
 # script discovers the samples, fans out one SLURM array task per sample (each
-# runs all five callers inside the Apptainer image), then submits a dependent
+# runs all six callers inside the Apptainer image), then submits a dependent
 # consolidation job that builds the cohort summary.
 #
 #   ./slurm/run_mito_sv.sh /path/to/crams

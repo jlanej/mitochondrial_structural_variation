@@ -8,7 +8,7 @@
 #
 # Output layout (under --outdir, which should be a per-sample directory):
 #   preprocess/<sample>.chrM.bam(.bai), <sample>.R1/R2.fastq.gz
-#   eklipse/ mitosalt/ splicebreak2/ mitomut/ mitoseek/   (one per caller)
+#   mitohpc/ eklipse/ mitosalt/ splicebreak2/ mitomut/ mitoseek/   (one per caller)
 #   status.tsv
 ###############################################################################
 set -uo pipefail
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 log() { printf '[run_sample %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 
 INPUT="" SAMPLE="" OUTDIR="" REFERENCE="" THREADS=4 MT_CONTIG=""
-CALLERS="eklipse,mitosalt,splicebreak2,mitomut,mitoseek"
+CALLERS="mitohpc,eklipse,mitosalt,splicebreak2,mitomut,mitoseek"
 STRICT=0
 
 usage() {
@@ -30,7 +30,7 @@ Usage: run_sample.sh --input <cram|bam> --outdir <dir> [options]
   --reference FASTA   reference for CRAM decoding (optional)
   --mt-contig NAME    override mito contig name detection (optional)
   --threads N         threads per step (default 4)
-  --callers LIST      comma list or 'all' (default: all five)
+  --callers LIST      comma list or 'all' (default: all six)
   --strict            exit non-zero if any caller fails
 EOF
     exit "${1:-2}"
@@ -57,7 +57,7 @@ if [[ -z "$SAMPLE" ]]; then
 fi
 # Sanitise: callers use the sample name in filenames.
 SAMPLE="$(printf '%s' "$SAMPLE" | tr ' /' '__')"
-[[ "$CALLERS" == "all" ]] && CALLERS="eklipse,mitosalt,splicebreak2,mitomut,mitoseek"
+[[ "$CALLERS" == "all" ]] && CALLERS="mitohpc,eklipse,mitosalt,splicebreak2,mitomut,mitoseek"
 
 mkdir -p "$OUTDIR"
 OUTDIR="$(readlink -f "$OUTDIR")"
@@ -83,6 +83,7 @@ R2="$PRE/${SAMPLE}.R2.fastq.gz"
 # 2. run callers
 ###############################################################################
 declare -A WRAP=(
+    [mitohpc]="$HERE/callers/run_mitohpc.sh"
     [eklipse]="$HERE/callers/run_eklipse.sh"
     [mitosalt]="$HERE/callers/run_mitosalt.sh"
     [splicebreak2]="$HERE/callers/run_splicebreak2.sh"

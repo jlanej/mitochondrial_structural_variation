@@ -127,6 +127,32 @@ def write_summary(records, samples, path):
             fh.write("  %-24s %s\n" % (s, ", ".join(cs) if cs else "(none)"))
 
 
+def read_status(sample_dir):
+    """Read a sample's status.tsv -> list of (caller, status, seconds)."""
+    rows = []
+    path = os.path.join(sample_dir, "status.tsv")
+    if os.path.isfile(path):
+        with open(path, newline="") as fh:
+            for row in csv.DictReader(fh, delimiter="\t"):
+                try:
+                    secs = float(row.get("seconds") or "nan")
+                except ValueError:
+                    secs = float("nan")
+                rows.append((row.get("caller", ""), row.get("status", ""), secs))
+    return rows
+
+
+def write_runtime(sample_pairs, path):
+    """Per (sample, caller): wall-clock seconds + status — the runtime comparison."""
+    with open(path, "w", newline="") as fh:
+        w = csv.writer(fh, delimiter="\t")
+        w.writerow(["sample", "caller", "status", "seconds"])
+        for name, sd in sample_pairs:
+            for (caller, status, secs) in read_status(sd):
+                w.writerow([name, caller, status,
+                            "" if secs != secs else ("%.1f" % secs)])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -152,10 +178,12 @@ def main(argv=None):
 
     records = []
     samples = []
+    sample_pairs = []
     for sd in sample_dirs:
         name = args.sample if (args.sample_dir and args.sample) else \
             os.path.basename(os.path.normpath(sd))
         samples.append(name)
+        sample_pairs.append((name, sd))
         recs = parsers.parse_sample_dir(sd, name)
         records.extend(recs)
         sys.stderr.write("postprocess: %s -> %d calls\n" % (name, len(recs)))
@@ -164,6 +192,7 @@ def main(argv=None):
     write_common_deletion(records, samples, os.path.join(out_dir, "cohort_common_deletion.tsv"))
     write_matrix(records, samples, os.path.join(out_dir, "cohort_caller_matrix.tsv"))
     write_summary(records, samples, os.path.join(out_dir, "cohort_summary.txt"))
+    write_runtime(sample_pairs, os.path.join(out_dir, "cohort_runtime.tsv"))
 
     sys.stderr.write("postprocess: wrote cohort_*.tsv to %s\n" % out_dir)
     return 0

@@ -53,7 +53,8 @@ COPY pipeline/              /opt/pipeline/
 ENV EKLIPSE_SHA=3606cb2edac983d2623ddc667b49206c3d01373c \
     SPLICEBREAK_SHA=7b4ee7aed77586e67dc9fa2710288317e133f7cf \
     MITOMUT_SHA=ba56a65a5fc5728b2807d1253f6233db56e1c391 \
-    MITOSEEK_SHA=624efc623832e3ca7f1095460ce4bc4e68bf8503
+    MITOSEEK_SHA=624efc623832e3ca7f1095460ce4bc4e68bf8503 \
+    MITOHPC_SHA=6c28e36e5c95fa82e3af598ec759427e83e3c41e
 
 # --- shared pipeline env + reference indexes (samtools/bwa/minimap2/pysam) ---
 RUN bash /opt/install/10_mitosv.sh
@@ -69,6 +70,9 @@ RUN bash /opt/install/40_mitoseek.sh
 
 # --- MitoSAlt (Perl + R + LAST, rCRS index built from bundled reference) ---
 RUN bash /opt/install/50_mitosalt.sh
+
+# --- MitoHPC reference SV caller (Python3 + pysam; runs in the mitosv env) ---
+RUN bash /opt/install/60_mitohpc.sh
 
 # Splice-Break2 hardcodes /usr/bin/python and expects it to be Python 2.
 RUN ln -sf /opt/conda/envs/py2tools/bin/python2.7 /usr/bin/python

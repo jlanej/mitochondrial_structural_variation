@@ -129,6 +129,7 @@ fi
 ###############################################################################
 note "per-caller 'did it run' check (positive sample: $POS)"
 declare -A EXPECT=(
+    [mitohpc]="mitohpc/mitohpc.sv.tab"
     [eklipse]="eklipse/eKLIPse_deletions.csv"
     [mitosalt]="mitosalt/${POS}.mitosalt.tsv"
     [splicebreak2]="splicebreak2/${POS}_LargeMTDeletions_WGS-only_NoPositionFilter.txt"
@@ -138,7 +139,7 @@ declare -A EXPECT=(
 [[ -f "$OUT/$POS/status.tsv" ]] && { echo "status.tsv:"; cat "$OUT/$POS/status.tsv"; } \
     || err "no status.tsv for $POS (preprocess likely failed)"
 declare -A OP=()
-for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
+for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
     if [[ "$CALLERS" != "all" && ",$CALLERS," != *",$caller,"* ]]; then OP[$caller]=skip; continue; fi
     st="$(awk -F'\t' -v c="$caller" '$1==c{print $2}' "$OUT/$POS/status.tsv" 2>/dev/null)"
     out_ok=0; [[ -f "$OUT/$POS/${EXPECT[$caller]}" ]] && out_ok=1
@@ -206,7 +207,7 @@ cp "$OUT"/cohort_sv_calls.tsv "$OUT"/cohort_common_deletion.tsv \
    "$OUT"/cohort_caller_matrix.tsv "$OUT"/cohort_summary.txt "$EXDIR"/ 2>/dev/null || true
 for s in "${SAMPLES[@]}"; do
     sd="$OUT/$s"; [[ -d "$sd" ]] || continue
-    for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
+    for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
         cdir="$sd/$caller"; [[ -d "$cdir" ]] || continue
         dest="$EXDIR/$s/$caller"; mkdir -p "$dest"
         find "$cdir" -maxdepth 1 -type f ! -name 'bam_list.tsv' \
@@ -239,13 +240,28 @@ detected_by() {  # sample caller -> yes/no (common deletion)
     echo
     echo "| caller | ran | detected common deletion |"
     echo "|--------|:---:|:------------------------:|"
-    for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
+    for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
         echo "| $caller | ${OP[$caller]:-?} | $(detected_by "$POS" "$caller") |"
     done
     echo
     [[ -f "$scen_md" ]] && cat "$scen_md"
 } > "$summary_md"
 echo "--- SMOKE_SUMMARY.md ---"; cat "$summary_md"
+
+###############################################################################
+# Interactive comparison report -> docs/index.html (CI commits it).
+###############################################################################
+note "generating docs/index.html (interactive caller comparison)"
+if [[ -f "$cohort" && -f "$OUT/cohort_runtime.tsv" ]]; then
+    python3 "$REPO/pipeline/make_report.py" \
+        --calls "$cohort" --runtime "$OUT/cohort_runtime.tsv" \
+        --truth "$REPO/test/data/truth.tsv" --samples "${SAMPLES[*]}" \
+        --out "$REPO/docs/index.html" --scope "$SCOPE" \
+        --image "$IMAGE" --generated "${MITO_SV_GENERATED:-$(date -u +%Y-%m-%d)}" \
+        && echo "wrote docs/index.html" || warn "report generation failed"
+else
+    warn "cohort tables missing — skipping report"
+fi
 
 note "result"
 echo "warnings: $warns"

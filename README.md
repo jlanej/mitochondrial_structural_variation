@@ -1,9 +1,9 @@
 # Mitochondrial Structural Variation (mtDNA SV) caller suite
 
-A batteries-included, end-to-end pipeline that runs **five mitochondrial
+A batteries-included, end-to-end pipeline that runs **six mitochondrial
 structural-variant / large-deletion callers** over a cohort of CRAM (or BAM)
-files on an HPC cluster and consolidates their output into a single cohort
-summary.
+files on an HPC cluster, consolidates their output into a single cohort summary,
+and produces an **interactive caller-comparison report**.
 
 The callers are notoriously painful to install (Python 2, legacy samtools,
 bundled binaries, dead reference-download URLs). This repo **Dockerizes all of
@@ -12,11 +12,18 @@ SLURM launcher that fans the work out with Apptainer.
 
 | Caller | Method | Lang / runtime | Input it consumes here |
 |--------|--------|----------------|------------------------|
+| [MitoHPC](https://github.com/jlanej/MitoHPC/tree/sv-calling) *(reference)* | split-read + coverage-drop | Python 3, pysam | realigned `chrM` BAM |
 | [eKLIPse](https://github.com/dooguypapua/eKLIPse) | soft-clip + BLAST breakpoints | Python 2.7, BLAST+, circos | realigned `chrM` BAM |
 | [MitoSAlt](https://sourceforge.net/projects/mitosalt/) | LAST split-read clustering | Perl + R, LAST | mito FASTQ pair |
 | [Splice-Break2](https://github.com/brookehjelm/Splice-Break2) | MapSplice2 junctions | bash + Python 2 + Java 8 | mito FASTQ pair |
 | [MitoMut](https://github.com/shane-e945/MitoMut) | BLAT split-read | Python 3, pysam, BLAT | realigned `chrM` BAM |
 | [MitoSeek](https://github.com/riverlee/MitoSeek) | discordant / large-TLEN reads | Perl, samtools 0.1.x | realigned `chrM` BAM |
+
+[**MitoHPC**](https://github.com/jlanej/MitoHPC/tree/sv-calling)'s own SV caller
+is bundled as the **reference method**: it runs on the same normalised `chrM`
+BAM as the others, giving an apples-to-apples comparison. See the live
+[comparison report](docs/index.html) (`docs/index.html`) — caller × scenario
+detection matrix, runtime, and sensitivity, regenerated on every build.
 
 > **Reference frame:** everything is normalised to the rCRS (NC_012920.1,
 > contig `chrM`, 16569 bp). The classic ~4977 bp "common deletion"
@@ -197,15 +204,16 @@ at breakpoints **8469–13447**.
 ## Repository layout
 
 ```
-Dockerfile                 single image, 5 callers, 4 conda envs
+Dockerfile                 single image, 6 callers, 4 conda envs
 docker/install/*.sh        per-caller install scripts (run during build)
 assets/rCRS.chrM.fa        canonical rCRS reference (bundled)
 vendor/MitoSAlt_1.1.1/     vendored MitoSAlt source (no upstream git repo)
 pipeline/
   preprocess.sh            CRAM/BAM → normalised chrM BAM + mito FASTQ
   run_sample.sh            per-sample driver (preprocess + all callers)
-  callers/run_*.sh         one wrapper per caller
-  postprocess.py           cohort consolidation
+  callers/run_*.sh         one wrapper per caller (incl. run_mitohpc.sh)
+  postprocess.py           cohort consolidation (+ cohort_runtime.tsv)
+  make_report.py           interactive docs/index.html generator
   lib/parsers.py           per-caller output parsers (unit-tested)
 slurm/
   run_mito_sv.sh           HPC launcher (the entry point)
@@ -213,8 +221,11 @@ slurm/
   consolidate.sbatch       cohort summary job
 test/
   test_parsers.py          parser unit tests
+  test_check_scenarios.py  scenario-evaluator unit tests
+  check_scenarios.py       truth-driven caller-comparison evaluator
   smoke_test.sh            full functional CI against the image
   data/                    committed test BAMs + truth
+docs/index.html            interactive caller-comparison report (CI-generated)
 ```
 
 ---
