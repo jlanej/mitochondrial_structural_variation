@@ -38,9 +38,15 @@ SB_PATH="$(readlink -f "$sbwork")"
 
 indir="$out_abs/in"; sbout="$out_abs/out"; sblog="$out_abs/log"
 mkdir -p "$indir" "$sbout" "$sblog"
-# The driver expects <sample>.R1.fastq / <sample>.R2.fastq (auto-gunzips .gz).
-cp "$r1_abs" "$indir/${SAMPLE}.R1.fastq.gz"
-cp "$r2_abs" "$indir/${SAMPLE}.R2.fastq.gz"
+# The driver expects <sample>.R1.fastq / <sample>.R2.fastq. Splice-Break2's
+# dedupe->reformat->MapSplice pipeline (and the read-name cleanup seds in the
+# driver, which expect the pattern "<name>/1_dd0 /1") requires reads to carry
+# /1 and /2 mate suffixes; our preprocessing FASTQ has clean names (samtools
+# fastq -n), which makes MapSplice reject the pair with "Base name of two ends
+# not consistent". Re-add the mate suffixes for Splice-Break2's copy only
+# (MitoSAlt still consumes the clean-named preprocessing FASTQ).
+zcat -f "$r1_abs" | awk 'NR%4==1{print $1"/1"; next} {print}' > "$indir/${SAMPLE}.R1.fastq"
+zcat -f "$r2_abs" | awk 'NR%4==1{print $1"/2"; next} {print}' > "$indir/${SAMPLE}.R2.fastq"
 
 log "running Splice-Break2 on $SAMPLE"
 # Runs in py2tools env: provides Java 8 + Python 2 (and /usr/bin/python -> py2).
