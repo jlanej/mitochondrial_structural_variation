@@ -19,7 +19,10 @@ IMAGE="${1:-mito-sv:ci}"
 CALLERS="${2:-all}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$(mktemp -d)"
-trap 'rm -rf "$OUT"' EXIT
+# The container runs as root, so files it writes into $OUT are root-owned; the
+# in-container EXIT trap below relaxes their permissions so this host-side
+# cleanup can remove them (and we tolerate any residue regardless).
+trap 'rm -rf "$OUT" 2>/dev/null || sudo -n rm -rf "$OUT" 2>/dev/null || true' EXIT
 
 POS=sv_del4977_h30          # positive: common deletion @ ~30% heteroplasmy
 WT=sv_wt                    # negative: wild type, no SV
@@ -41,6 +44,9 @@ docker run --rm \
     -v "$OUT:/out" \
     --entrypoint bash "$IMAGE" -lc '
 set -e
+# Relax perms on the bind-mounted output on exit so the (non-root) host can
+# clean it up — the container writes as root.
+trap "chmod -R a+rwX /out 2>/dev/null || true" EXIT
 RUN=/opt/pipeline/run_sample.sh
 SAM="micromamba run -n mitosv samtools"
 
