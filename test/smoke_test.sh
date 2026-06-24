@@ -1,88 +1,132 @@
 #!/usr/bin/env bash
 ###############################################################################
-# smoke_test.sh — robust functional CI for the built image.
+# smoke_test.sh — functional CI mirroring the MitoHPC sv-calling scenarios.
 #
-#   bash test/smoke_test.sh [IMAGE] [CALLERS]
+#   bash test/smoke_test.sh [IMAGE] [CALLERS] [SCOPE]
+#     IMAGE   : container image (default mito-sv:ci)
+#     CALLERS : caller list (default all)
+#     SCOPE   : full (default) = all 10 mock BAMs + CRAM round-trip + real BAMs
+#                                + degenerate-input robustness;
+#               quick          = sv_del4977_h30 + sv_wt + CRAM only
 #
-# Runs the full per-sample pipeline (preprocess + all callers) inside the image
-# on the committed MitoHPC test data, covering BOTH the BAM and CRAM input paths.
+# Runs the full per-sample pipeline inside the image over the committed MitoHPC
+# test cohort (the same diverse constructs MitoHPC's own caller is tested on:
+# common deletion at varying VAF/depth, non-repeat deletion, D-loop deletion,
+# multi-deletion, tandem duplication, origin-crossing deletion, wild-type, plus
+# real 1000G + a del4977 spike-in), then asserts:
 #
-# HARD FAILS (block the build) — "does it run?" is the bar:
-#   * preprocess failed (no status.tsv), OR
-#   * post-processing produced no cohort tables, OR
-#   * ANY caller did not run (status != ok or no output file); its log is printed.
-# LOUD WARNINGS (do NOT block the build) — "did it call?":
-#   * the known common deletion was not detected by a caller that ran.
-# Also writes deterministic example outputs + a SMOKE_SUMMARY.md (operated vs
-# detected per caller) to test/example_output/ for CI to commit.
+#   HARD FAILS (block the build):
+#     * any caller did not RUN on the canonical positive sv_del4977_h30
+#     * post-processing produced no cohort tables
+#     * SPECIFICITY: a caller called the ~4977 bp common deletion on a sample
+#       that does not carry it (wild-type / duplication / origin / del6000 / dloop)
+#     * SENSITIVITY: the common deletion is NOT detected on sv_del4977_h30
+#     * a degenerate input (wrong-contig / empty BAM) did not fail cleanly
+#   WARNINGS (do NOT block): per-scenario sensitivity misses by the heuristic
+#     callers (reported in the scenario matrix).
+#
+# Writes test/example_output/ (deterministic result files + SMOKE_SUMMARY.md +
+# any FAILED caller logs) for CI to commit.
 ###############################################################################
 set -uo pipefail
 
 IMAGE="${1:-mito-sv:ci}"
 CALLERS="${2:-all}"
+SCOPE="${3:-${MITO_SV_SMOKE_SCOPE:-full}}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$(mktemp -d)"
-# The container runs as root, so files it writes into $OUT are root-owned; the
-# in-container EXIT trap below relaxes their permissions so this host-side
-# cleanup can remove them (and we tolerate any residue regardless).
 trap 'rm -rf "$OUT" 2>/dev/null || sudo -n rm -rf "$OUT" 2>/dev/null || true' EXIT
 
-POS=sv_del4977_h30          # positive: common deletion @ ~30% heteroplasmy
-WT=sv_wt                    # negative: wild type, no SV
-fail=0
+POS=sv_del4977_h30          # canonical positive control (common deletion @30%)
+WT=sv_wt                    # wild-type negative
+fail=0; warns=0
 note() { printf '\n=== %s ===\n' "$*"; }
 err()  { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; warns=$((warns+1)); }
 
 echo "image:   $IMAGE"
 echo "callers: $CALLERS"
+echo "scope:   $SCOPE"
 echo "out:     $OUT"
 
 ###############################################################################
-# Run everything inside one container session (so the CRAM round-trip uses the
-# image's own samtools + bundled rCRS).
+# Run the whole cohort inside one container session.
 ###############################################################################
-note "running pipeline in container"
+note "running scenario cohort in container (scope=$SCOPE)"
 docker run --rm \
     -v "$REPO/test/data:/data:ro" \
     -v "$OUT:/out" \
+    -e CALLERS="$CALLERS" -e SCOPE="$SCOPE" -e POS="$POS" \
     --entrypoint bash "$IMAGE" -lc '
 set -e
-# Relax perms on the bind-mounted output on exit so the (non-root) host can
-# clean it up — the container writes as root.
 trap "chmod -R a+rwX /out 2>/dev/null || true" EXIT
 RUN=/opt/pipeline/run_sample.sh
 SAM="micromamba run -n mitosv samtools"
 
-# --- BAM input path: positive + wild-type ---
-"$RUN" --input /data/bams/'"$POS"'.bam --sample '"$POS"' \
-       --outdir /out/'"$POS"' --threads 2 --callers '"$CALLERS"' || true
-"$RUN" --input /data/bams/'"$WT"'.bam  --sample '"$WT"'  \
-       --outdir /out/'"$WT"'  --threads 2 --callers '"$CALLERS"' || true
+run_one() {  # <input> <sample>
+    "$RUN" --input "$1" --sample "$2" --outdir /out/"$2" \
+           --threads 2 --callers "$CALLERS" || true
+}
 
-# --- CRAM input path: encode the positive against bundled rCRS, then run ---
-$SAM view -b -o /out/_pos.bam /data/bams/'"$POS"'.bam
+if [ "$SCOPE" = quick ]; then
+    run_one /data/bams/'"$POS"'.bam "$POS"
+    run_one /data/bams/sv_wt.bam   sv_wt
+else
+    # All 10 mock scenario BAMs.
+    for bam in /data/bams/*.bam; do
+        run_one "$bam" "$(basename "$bam" .bam)"
+    done
+fi
+
+# CRAM round-trip of the canonical positive (CRAM input path; decoded offline
+# via the seeded rCRS reference cache).
+$SAM view -b -o /out/_pos.bam /data/bams/"$POS".bam
 $SAM index /out/_pos.bam
-$SAM view -C -T /opt/assets/rCRS.chrM.fa -o /out/'"$POS"'.cram /out/_pos.bam
-$SAM index /out/'"$POS"'.cram
-"$RUN" --input /out/'"$POS"'.cram --sample '"$POS"'_cram \
-       --outdir /out/'"$POS"'_cram --threads 2 --callers '"$CALLERS"' || true
+$SAM view -C -T /opt/assets/rCRS.chrM.fa -o /out/"$POS".cram /out/_pos.bam
+$SAM index /out/"$POS".cram
+run_one /out/"$POS".cram "${POS}_cram"
 
-# --- cohort consolidation ---
+if [ "$SCOPE" != quick ]; then
+    # Real 1000G data: a del4977 spike-in (sensitivity) + a healthy sample
+    # (specificity) — mirrors MitoHPC check_real.
+    run_one /data/real/spike_del4977_h20.chrM.bam spike_del4977_h20
+    run_one /data/real/NA12718.chrM.bam           NA12718
+
+    # Degenerate inputs (robustness): must fail cleanly, never hang/traceback.
+    : > /out/_degen.txt
+    # (a) wrong mito-contig name
+    $SAM view -h /data/bams/sv_wt.bam | sed "s/SN:chrM/SN:chrZ/; s/\tchrM\t/\tchrZ\t/" \
+        | $SAM view -b -o /out/_wrongcontig.bam -
+    if "$RUN" --input /out/_wrongcontig.bam --sample degen_wrongcontig \
+              --outdir /out/_degen_wc --threads 2 --callers eklipse \
+              > /out/_degen_wc.log 2>&1; then rc=0; else rc=$?; fi
+    echo "wrongcontig $rc" >> /out/_degen.txt
+    # (b) empty (header-only) BAM
+    $SAM view -H /data/bams/sv_wt.bam | $SAM view -b -o /out/_empty.bam -
+    if "$RUN" --input /out/_empty.bam --sample degen_empty \
+              --outdir /out/_degen_empty --threads 2 --callers eklipse \
+              > /out/_degen_empty.log 2>&1; then rc=0; else rc=$?; fi
+    echo "empty $rc" >> /out/_degen.txt
+fi
+
+# Cohort consolidation.
 micromamba run -n mitosv python /opt/pipeline/postprocess.py --root /out
 ' || err "container session returned non-zero"
 
 ###############################################################################
-# Assertions (on the host, over the shared $OUT)
-#
-# Gating policy:
-#   HARD FAIL  — a caller did not RUN (status != ok or no output file), or
-#                preprocess/post-processing broke. "It runs" is the bar.
-#   WARN only  — a caller ran but did not DETECT the known common deletion.
-# Logs of any non-running caller are printed so they can be diagnosed.
+# Determine which samples actually ran (host side).
 ###############################################################################
-warns=0
-warn() { printf 'WARNING: %s\n' "$*" >&2; warns=$((warns+1)); }
+if [[ "$SCOPE" == quick ]]; then
+    SAMPLES=("$POS" "$WT" "${POS}_cram")
+else
+    SAMPLES=()
+    for b in "$REPO"/test/data/bams/*.bam; do SAMPLES+=("$(basename "$b" .bam)"); done
+    SAMPLES+=("${POS}_cram" "spike_del4977_h20" "NA12718")
+fi
 
+###############################################################################
+# 1. Operating gate (HARD): every caller ran on the canonical positive.
+###############################################################################
 note "per-caller 'did it run' check (positive sample: $POS)"
 declare -A EXPECT=(
     [eklipse]="eklipse/eKLIPse_deletions.csv"
@@ -91,99 +135,112 @@ declare -A EXPECT=(
     [mitomut]="mitomut/mitomut_results.txt"
     [mitoseek]="mitoseek/mitoseek_large_deletion.sam"
 )
-if [[ -f "$OUT/$POS/status.tsv" ]]; then
-    echo "status.tsv:"; cat "$OUT/$POS/status.tsv"
-else
-    err "no status.tsv for $POS (preprocess likely failed)"
-fi
-operating=0
+[[ -f "$OUT/$POS/status.tsv" ]] && { echo "status.tsv:"; cat "$OUT/$POS/status.tsv"; } \
+    || err "no status.tsv for $POS (preprocess likely failed)"
 declare -A OP=()
 for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
     if [[ "$CALLERS" != "all" && ",$CALLERS," != *",$caller,"* ]]; then OP[$caller]=skip; continue; fi
     st="$(awk -F'\t' -v c="$caller" '$1==c{print $2}' "$OUT/$POS/status.tsv" 2>/dev/null)"
     out_ok=0; [[ -f "$OUT/$POS/${EXPECT[$caller]}" ]] && out_ok=1
     if [[ "$st" == "ok" && "$out_ok" == 1 ]]; then
-        echo "  OK   $caller ran (status=$st, output present)"; operating=$((operating+1)); OP[$caller]=yes
+        echo "  OK   $caller ran"; OP[$caller]=yes
     else
         OP[$caller]=no
         err "$caller did NOT run (status='${st:-missing}', output_present=$out_ok)"
         clog="$OUT/$POS/$caller/$caller.log"
-        if [[ -f "$clog" ]]; then
-            echo "----- $caller log (tail) -----------------------------------------" >&2
-            tail -n 30 "$clog" >&2
-            echo "------------------------------------------------------------------" >&2
-        fi
+        [[ -f "$clog" ]] && { echo "----- $caller log (tail) -----" >&2; tail -n 30 "$clog" >&2; }
     fi
 done
 
-note "sensitivity: common (~4977 bp) deletion detection (WARN only, not gated)"
-cd_file="$OUT/cohort_common_deletion.tsv"
-[[ -f "$cd_file" ]] || err "cohort_common_deletion.tsv not produced (post-processing broken)"
-if [[ -f "$cd_file" ]]; then
-    pos_hits="$(awk -F'\t' -v s="$POS" '$1==s && $3==1{print $2}' "$cd_file" | sort -u | paste -sd, -)"
-    cram_hits="$(awk -F'\t' -v s="${POS}_cram" '$1==s && $3==1{print $2}' "$cd_file" | sort -u | paste -sd, -)"
-    echo "  $POS detected by: ${pos_hits:-<none>}"
-    echo "  ${POS}_cram detected by: ${cram_hits:-<none>}"
-    [[ -n "$pos_hits" ]]  || warn "no caller detected the common deletion in $POS (BAM path)"
-    [[ -n "$cram_hits" ]] || warn "no caller detected the common deletion in ${POS}_cram (CRAM path)"
+###############################################################################
+# 2. Scenario sensitivity/specificity (HARD specificity + canonical sensitivity;
+#    other sensitivity = warnings). Runs on the host over the cohort table.
+###############################################################################
+note "scenario evaluation vs MitoHPC truth"
+cohort="$OUT/cohort_sv_calls.tsv"
+scen_md="$OUT/scenario_matrix.md"
+[[ -f "$OUT/cohort_common_deletion.tsv" ]] || err "post-processing produced no cohort tables"
+if [[ -f "$cohort" ]]; then
+    if python3 "$REPO/test/check_scenarios.py" --calls "$cohort" \
+            --truth "$REPO/test/data/truth.tsv" --out-md "$scen_md" \
+            --samples "${SAMPLES[*]}"; then
+        echo "scenario gates passed"
+    else
+        err "scenario hard-gate failure (see scenario matrix above)"
+    fi
+else
+    err "cohort_sv_calls.tsv not produced"
 fi
-
-note "specificity (informational): wild-type $WT"
-if [[ -f "$cd_file" ]]; then
-    wt_hits="$(awk -F'\t' -v s="$WT" '$1==s && $3==1{print $2}' "$cd_file" | sort -u | paste -sd, -)"
-    echo "  $WT flagged common deletion by: ${wt_hits:-<none>}  (expected: <none>)"
-fi
-
-note "cohort summary"
-[[ -f "$OUT/cohort_summary.txt" ]] && cat "$OUT/cohort_summary.txt"
-echo; echo "caller matrix:"; [[ -f "$OUT/cohort_caller_matrix.tsv" ]] && cat "$OUT/cohort_caller_matrix.tsv"
 
 ###############################################################################
-# Save deterministic example outputs into the repo (CI commits these on a
-# successful build). We copy only small text result files — NOT logs/status
-# (timestamps churn) and NOT BAM/FASTQ intermediates.
+# 3. Degenerate-input robustness (HARD): wrong-contig / empty BAM must fail
+#    cleanly (non-zero exit, no Python traceback).
+###############################################################################
+if [[ "$SCOPE" != quick ]]; then
+    note "degenerate-input robustness"
+    if [[ -f "$OUT/_degen.txt" ]]; then
+        cat "$OUT/_degen.txt"
+        while read -r name rc; do
+            log="$OUT/_degen_${name/wrongcontig/wc}.log"
+            [[ "$name" == empty ]] && log="$OUT/_degen_empty.log"
+            if [[ "$rc" == 0 ]]; then
+                err "degenerate input '$name' did NOT fail (exit 0)"
+            elif grep -q "Traceback (most recent call last)" "$log" 2>/dev/null; then
+                err "degenerate input '$name' failed with a Python traceback (not clean)"
+                tail -n 15 "$log" >&2
+            else
+                echo "  OK   '$name' failed cleanly (exit $rc, no traceback)"
+            fi
+        done < "$OUT/_degen.txt"
+    else
+        err "degenerate-input results missing"
+    fi
+fi
+
+###############################################################################
+# Cohort summary to console.
+###############################################################################
+note "cohort summary"; [[ -f "$OUT/cohort_summary.txt" ]] && cat "$OUT/cohort_summary.txt"
+
+###############################################################################
+# Save example outputs + SMOKE_SUMMARY.md (CI commits these).
 ###############################################################################
 note "saving example outputs -> test/example_output"
-EXDIR="$REPO/test/example_output"
-rm -rf "$EXDIR"; mkdir -p "$EXDIR"
+EXDIR="$REPO/test/example_output"; rm -rf "$EXDIR"; mkdir -p "$EXDIR"
 cp "$OUT"/cohort_sv_calls.tsv "$OUT"/cohort_common_deletion.tsv \
    "$OUT"/cohort_caller_matrix.tsv "$OUT"/cohort_summary.txt "$EXDIR"/ 2>/dev/null || true
-for s in "$POS" "$WT" "${POS}_cram"; do
+for s in "${SAMPLES[@]}"; do
     sd="$OUT/$s"; [[ -d "$sd" ]] || continue
     for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
         cdir="$sd/$caller"; [[ -d "$cdir" ]] || continue
         dest="$EXDIR/$s/$caller"; mkdir -p "$dest"
-        # only top-level result text files (skip work/, sb_install/, *.bam,
-        # input lists, etc.)
         find "$cdir" -maxdepth 1 -type f ! -name 'bam_list.tsv' \
             \( -name '*.csv' -o -name '*.tsv' -o -name '*.txt' -o -name '*.sam' \) \
             -exec cp {} "$dest/" \; 2>/dev/null || true
-        # If the caller produced no result file it FAILED — capture its log so the
-        # failure is committed and diagnosable without re-running.
         if [ -z "$(ls -A "$dest" 2>/dev/null)" ] && [ -f "$cdir/$caller.log" ]; then
             cp "$cdir/$caller.log" "$dest/${caller}.FAILED.log"
         fi
-        rmdir "$dest" 2>/dev/null || true   # drop truly-empty dirs
+        rmdir "$dest" 2>/dev/null || true
     done
     rmdir "$EXDIR/$s" 2>/dev/null || true
 done
 
-# Human-readable "what is working vs just running" summary (deterministic — no
-# timestamps — so it only changes when caller behaviour changes).
-detected_by() {  # sample caller -> "yes"/"no"
-    awk -F'\t' -v s="$1" -v c="$2" '$1==s && $2==c && $3==1{f=1} END{print (f?"yes":"no")}' \
-        "$cd_file" 2>/dev/null || echo "no"
-}
+# SMOKE_SUMMARY.md: operating table + scenario matrix.
 summary_md="$EXDIR/SMOKE_SUMMARY.md"
+detected_by() {  # sample caller -> yes/no (common deletion)
+    awk -F'\t' -v s="$1" -v c="$2" '$1==s && $2==c && $3==1{f=1} END{print (f?"yes":"no")}' \
+        "$OUT/cohort_common_deletion.tsv" 2>/dev/null || echo "no"
+}
 {
     echo "# Smoke-test summary"
     echo
-    echo "Functional status of each caller on the committed test data, produced by"
-    echo '`test/smoke_test.sh` during the CI image build. The positive control'
-    echo "\`$POS\` carries the ~4977 bp common deletion (m.8470_13447del)."
+    echo "Functional status of each caller across the MitoHPC test cohort, produced by"
+    echo '`test/smoke_test.sh` during the CI image build (scope: '"$SCOPE"').'
     echo
-    echo "- **ran** — the caller completed and produced its expected output file (gated: a 'no' fails the build)"
-    echo "- **detected common deletion** — it actually called del4977 in \`$POS\` (not gated; a miss is only a warning)"
+    echo "## Operating + common-deletion detection (positive control \`$POS\`)"
+    echo
+    echo "- **ran** — completed and produced its expected output file (gated)"
+    echo "- **detected common deletion** — called del4977 in \`$POS\` (gated: >=1 caller)"
     echo
     echo "| caller | ran | detected common deletion |"
     echo "|--------|:---:|:------------------------:|"
@@ -191,24 +248,10 @@ summary_md="$EXDIR/SMOKE_SUMMARY.md"
         echo "| $caller | ${OP[$caller]:-?} | $(detected_by "$POS" "$caller") |"
     done
     echo
-    echo "Callers that ran: ${operating}/5"
-    echo
-    echo "## CRAM input path (\`${POS}_cram\`)"
-    echo
-    echo "Common deletion detected by: ${cram_hits:-(none)}"
-    echo
-    echo "## Specificity — wild-type negative (\`$WT\`)"
-    echo
-    echo "Common deletion flagged by: ${wt_hits:-(none)}  _(expected: none)_"
+    [[ -f "$scen_md" ]] && cat "$scen_md"
 } > "$summary_md"
 echo "--- SMOKE_SUMMARY.md ---"; cat "$summary_md"
-echo "--- example_output files ---"
-( cd "$EXDIR" && find . -type f | sort | sed 's#^\./#  #' ) || true
 
 note "result"
-echo "operating callers on $POS: ${operating:-0}/5    warnings: $warns"
-if [[ "$fail" == 0 ]]; then
-    echo "SMOKE TEST PASSED"; exit 0
-else
-    echo "SMOKE TEST FAILED"; exit 1
-fi
+echo "warnings: $warns"
+if [[ "$fail" == 0 ]]; then echo "SMOKE TEST PASSED"; exit 0; else echo "SMOKE TEST FAILED"; exit 1; fi

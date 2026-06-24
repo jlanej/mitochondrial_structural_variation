@@ -26,13 +26,19 @@ jobs:
       - name: Parser unit tests
         run: python3 test/test_parsers.py
 
+      - name: Scenario-evaluator unit tests
+        run: python3 test/test_check_scenarios.py
+
       - name: Post-process CLI smoke (no Docker)
         run: |
           python3 -c "import ast,sys; ast.parse(open('pipeline/postprocess.py').read())"
           python3 pipeline/postprocess.py --help >/dev/null
+          python3 test/check_scenarios.py --help >/dev/null
 
       - name: Python syntax (compile all)
-        run: python3 -m py_compile pipeline/postprocess.py pipeline/lib/parsers.py test/test_parsers.py
+        run: |
+          python3 -m py_compile pipeline/postprocess.py pipeline/lib/parsers.py \
+            test/test_parsers.py test/check_scenarios.py test/test_check_scenarios.py
 
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck

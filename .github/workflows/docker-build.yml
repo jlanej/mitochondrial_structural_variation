@@ -57,8 +57,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Functional smoke test (all callers)
-        run: bash test/smoke_test.sh mito-sv:ci
+      # Full scenario suite (all 10 mock BAMs + CRAM + real BAMs + degenerate
+      # inputs) on main/tags; the quicker 3-sample subset on PRs to keep PR CI
+      # snappy. Override locally with a 3rd arg: `bash test/smoke_test.sh IMG all quick`.
+      - name: Functional smoke test (scenario cohort)
+        run: |
+          SCOPE=full
+          [[ "${{ github.event_name }}" == "pull_request" ]] && SCOPE=quick
+          bash test/smoke_test.sh mito-sv:ci all "$SCOPE"
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
