@@ -61,12 +61,14 @@ if [[ -n "$res" ]]; then
     log "calls -> ${SAMPLE}_LargeMTDeletions_WGS-only_NoPositionFilter.txt"; ok=1
 else
     log "WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:"
-    # The driver redirects bbmap/MapSplice stderr into $sblog/<sample>.log; surface
-    # the tail so a swallowed JVM/heap error is visible in the caller log.
-    for lf in "$sblog"/*.log; do
+    # bbmap stderr goes to $sblog/<sample>.log; the MapSplice error log and the
+    # driver's nohup log (which records '#ERROR: Mapsplice Fail') live inside the
+    # per-sample output dir. Surface all of them so the real failure is captured
+    # in this caller log (and thus the committed *.FAILED.log).
+    while IFS= read -r lf; do
         [[ -f "$lf" ]] || continue
-        log "----- $(basename "$lf") (tail) -----"; tail -n 25 "$lf" >&2
-    done
+        log "----- ${lf#"$out_abs"/} (tail) -----"; tail -n 40 "$lf" >&2
+    done < <(find "$sblog" "$sbout" -type f \( -name '*.log' -o -name '*_nohup.log' \) 2>/dev/null | head -20)
 fi
 # Free the bulky per-sample install copy unless asked to keep it.
 [[ "${SB_KEEP_INSTALL:-0}" == "1" ]] || rm -rf "$sbwork"

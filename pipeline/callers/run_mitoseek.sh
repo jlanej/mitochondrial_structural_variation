@@ -44,7 +44,11 @@ log "running MitoSeek on $SAMPLE (samtools: $sam018)"
 # -t 4 mitochondria-only; SV detection (discordant mates + large deletions) is
 # always on; -noch/-nocs/-noQC skip circos + QC plots (avoid GD plotting paths).
 # MitoSeek creates an output dir named after the BAM basename in the CWD.
-micromamba run -n mitoseek bash -c "cd '$out_abs' && perl /opt/MitoSeek/mitoSeek.pl \
+# -I/opt/MitoSeek: mitoSeek.pl `use`s the bundled Math::SpecFun::Beta at line 24,
+# BEFORE its own `use lib "$FindBin::RealBin"` at line 25, so at runtime the
+# bundled module dir must already be on @INC (upstream relies on running from the
+# MitoSeek dir; we run from the output dir, so pass -I explicitly).
+micromamba run -n mitoseek bash -c "cd '$out_abs' && perl -I/opt/MitoSeek /opt/MitoSeek/mitoSeek.pl \
     -i '$bam_abs' -t 4 -r rCRS -R rCRS -str 4 -strf 500 -d 5 \
     -noch -nocs -noQC -samtools '$sam018'" || log "mitoSeek.pl returned non-zero"
 
