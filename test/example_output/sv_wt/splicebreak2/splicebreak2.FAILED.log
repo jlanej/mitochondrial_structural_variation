@@ -1,0 +1,48 @@
+[splicebreak2 17:36:06] running Splice-Break2 on sv_wt
+true
+ls: cannot access '/out/sv_wt/splicebreak2/in/*r1.fastq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*READ1.fastq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*read1.fastq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*R1.fq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*r1.fq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*READ1.fq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*read1.fq': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*R1.txt': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*r1.txt': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*READ1.txt': No such file or directory
+ls: cannot access '/out/sv_wt/splicebreak2/in/*read1.txt': No such file or directory
+[splicebreak2 17:36:08] WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:
+[splicebreak2 17:36:08] ----- sv_wt.log (tail) -----
+Memory: max=637m, total=637m, free=596m, used=41m
+
+Input is being processed as paired
+Started output streams:	0.005 seconds.
+Processing time:   		0.279 seconds.
+
+Input:                  	65978 reads 		9896700 bases.
+Contaminants:           	0 reads (0.00%) 	0 bases (0.00%)
+Total Removed:          	0 reads (0.00%) 	0 bases (0.00%)
+Result:                 	65978 reads (100.00%) 	9896700 bases (100.00%)
+
+Time:                         	0.299 seconds.
+Reads Processed:       65978 	220.75k reads/sec
+Bases Processed:       9896k 	33.11m bases/sec
+java -ea -Xms300m -cp /out/sv_wt/splicebreak2/sb_install/bbmap/v38.75/current/ jgi.ReformatReads in=/out/sv_wt/splicebreak2/out/sv_wt_interleaved2.fq out1=/out/sv_wt/splicebreak2/out/sv_wt-READ1.deduped.deAdapt.fq out2=/out/sv_wt/splicebreak2/out/sv_wt-READ2.deduped.deAdapt.fq
+Executing jgi.ReformatReads [in=/out/sv_wt/splicebreak2/out/sv_wt_interleaved2.fq, out1=/out/sv_wt/splicebreak2/out/sv_wt-READ1.deduped.deAdapt.fq, out2=/out/sv_wt/splicebreak2/out/sv_wt-READ2.deduped.deAdapt.fq]
+
+Set INTERLEAVED to true
+Input is being processed as paired
+Input:                  	65978 reads          	9896700 bases
+Output:                 	65978 reads (100.00%) 	9896700 bases (100.00%)
+
+Time:                         	0.234 seconds.
+Reads Processed:       65978 	282.27k reads/sec
+Bases Processed:       9896k 	42.34m bases/sec
+[splicebreak2 17:36:08] ----- temp.log (tail) -----
+Starting /out/sv_wt/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 24-06-2026-17-36-06 on 00554c34d02d
+Splice-Break2 v3.0.0 Paired-end
+gunzip {/out/sv_wt/splicebreak2/in/sv_wt.R1.fastq.gz}
+gunzip {/out/sv_wt/splicebreak2/in/sv_wt.R2.fastq.gz}
+outputDir: /out/sv_wt/splicebreak2/out
+logDir: /out/sv_wt/splicebreak2/log
+Default Align: --align=yes

@@ -1,0 +1,48 @@
+[splicebreak2 17:37:17] running Splice-Break2 on sv_del4977_h30_cram
+true
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*r1.fastq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*READ1.fastq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*read1.fastq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*R1.fq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*r1.fq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*READ1.fq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*read1.fq': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*R1.txt': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*r1.txt': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*READ1.txt': No such file or directory
+ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*read1.txt': No such file or directory
+[splicebreak2 17:37:19] WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:
+[splicebreak2 17:37:19] ----- sv_del4977_h30_cram.log (tail) -----
+Memory: max=637m, total=637m, free=593m, used=44m
+
+Input is being processed as paired
+Started output streams:	0.006 seconds.
+Processing time:   		0.250 seconds.
+
+Input:                  	60104 reads 		9015600 bases.
+Contaminants:           	0 reads (0.00%) 	0 bases (0.00%)
+Total Removed:          	0 reads (0.00%) 	0 bases (0.00%)
+Result:                 	60104 reads (100.00%) 	9015600 bases (100.00%)
+
+Time:                         	0.271 seconds.
+Reads Processed:       60104 	221.39k reads/sec
+Bases Processed:       9015k 	33.21m bases/sec
+java -ea -Xms300m -cp /out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/current/ jgi.ReformatReads in=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq out1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq out2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq
+Executing jgi.ReformatReads [in=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq, out1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq, out2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq]
+
+Set INTERLEAVED to true
+Input is being processed as paired
+Input:                  	60104 reads          	9015600 bases
+Output:                 	60104 reads (100.00%) 	9015600 bases (100.00%)
+
+Time:                         	0.407 seconds.
+Reads Processed:       60104 	147.71k reads/sec
+Bases Processed:       9015k 	22.16m bases/sec
+[splicebreak2 17:37:19] ----- temp.log (tail) -----
+Starting /out/sv_del4977_h30_cram/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 24-06-2026-17-37-17 on 00554c34d02d
+Splice-Break2 v3.0.0 Paired-end
+gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R1.fastq.gz}
+gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R2.fastq.gz}
+outputDir: /out/sv_del4977_h30_cram/splicebreak2/out
+logDir: /out/sv_del4977_h30_cram/splicebreak2/log
+Default Align: --align=yes
