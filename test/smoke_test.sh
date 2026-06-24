@@ -158,7 +158,12 @@ for s in "$POS" "$WT" "${POS}_cram"; do
         find "$cdir" -maxdepth 1 -type f ! -name 'bam_list.tsv' \
             \( -name '*.csv' -o -name '*.tsv' -o -name '*.txt' -o -name '*.sam' \) \
             -exec cp {} "$dest/" \; 2>/dev/null || true
-        rmdir "$dest" 2>/dev/null || true   # drop empty dirs (failed callers)
+        # If the caller produced no result file it FAILED — capture its log so the
+        # failure is committed and diagnosable without re-running.
+        if [ -z "$(ls -A "$dest" 2>/dev/null)" ] && [ -f "$cdir/$caller.log" ]; then
+            cp "$cdir/$caller.log" "$dest/${caller}.FAILED.log"
+        fi
+        rmdir "$dest" 2>/dev/null || true   # drop truly-empty dirs
     done
     rmdir "$EXDIR/$s" 2>/dev/null || true
 done

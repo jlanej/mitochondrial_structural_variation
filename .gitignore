@@ -227,6 +227,11 @@ __marimo__/
 # …but still never track compiled artifacts inside it
 pipeline/lib/__pycache__/
 
+# Everything under the committed example-output dir is tracked (incl. *.log
+# diagnostics for failed callers), overriding the generic *.log/*.txt rules above.
+!test/example_output/
+!test/example_output/**
+
 # Pipeline working/output dirs and built containers
 /work/
 /out/
