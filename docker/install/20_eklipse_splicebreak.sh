@@ -47,5 +47,20 @@ test -f /opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END/Splice-Break2_paired-
 test -f /opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END/NC_012920.1/NC.fa
 chmod -R u+rwX /opt/Splice-Break2
 
+# The bundled samtools v1.8 was built on CentOS and needs libcrypto.so.10
+# (OpenSSL 1.0), absent on the Debian base, so it fails at exec — used by the
+# driver (`samtools sort`) and the inner Splice-Break2_0725.sh (`samtools
+# mpileup`), both via ${SB_Path}/samtools/v1.8/bin/samtools. Replace it with a
+# wrapper to the py2tools env's samtools (1.9-1.15; sort/mpileup are
+# interface-compatible with the classic pileup format Splice-Break parses).
+SB_SAMTOOLS=/opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END/samtools/v1.8/bin/samtools
+cat > "$SB_SAMTOOLS" <<'EOF'
+#!/usr/bin/env bash
+exec /opt/conda/envs/py2tools/bin/samtools "$@"
+EOF
+chmod +x "$SB_SAMTOOLS"
+# Sanity: the replacement runs and is a 1.x samtools.
+micromamba run -n py2tools "$SB_SAMTOOLS" --version | head -1
+
 micromamba run -n py2tools java -version 2>&1 | head -1
 micromamba clean -a -y
