@@ -13,13 +13,13 @@ Functional status of each caller on the committed test data, produced by
 | mitosalt | yes | no |
 | splicebreak2 | no | no |
 | mitomut | yes | yes |
-| mitoseek | no | no |
+| mitoseek | yes | yes |
 
-Callers that ran: 3/5
+Callers that ran: 4/5
 
 ## CRAM input path (`sv_del4977_h30_cram`)
 
-Common deletion detected by: eklipse,mitomut
+Common deletion detected by: eklipse,mitomut,mitoseek
 
 ## Specificity — wild-type negative (`sv_wt`)
 

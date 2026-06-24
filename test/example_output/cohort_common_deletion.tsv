@@ -3,12 +3,12 @@ sv_del4977_h30	eklipse	1	8469	13447	4978	249	0.09544
 sv_del4977_h30	mitosalt	0					
 sv_del4977_h30	splicebreak2	0					
 sv_del4977_h30	mitomut	1	8471	13449	4978	141	0.2501
-sv_del4977_h30	mitoseek	0					
+sv_del4977_h30	mitoseek	1	8405	13447	5042	8	
 sv_del4977_h30_cram	eklipse	1	8469	13447	4978	249	0.09544
 sv_del4977_h30_cram	mitosalt	0					
 sv_del4977_h30_cram	splicebreak2	0					
 sv_del4977_h30_cram	mitomut	1	8471	13449	4978	141	0.2501
-sv_del4977_h30_cram	mitoseek	0					
+sv_del4977_h30_cram	mitoseek	1	8405	13447	5042	8	
 sv_wt	eklipse	0					
 sv_wt	mitosalt	0					
 sv_wt	splicebreak2	0					

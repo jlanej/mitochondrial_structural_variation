@@ -1,5 +1,0 @@
-[mitoseek 17:34:59] running MitoSeek on sv_del4977_h30 (samtools: /opt/MitoSeek/samtools_legacy)
-Can't locate Math/SpecFun/Beta.pm in @INC (you may need to install the Math::SpecFun::Beta module) (@INC contains: /opt/conda/envs/mitoseek/lib/perl5/5.32/site_perl /opt/conda/envs/mitoseek/lib/perl5/site_perl /opt/conda/envs/mitoseek/lib/perl5/5.32/vendor_perl /opt/conda/envs/mitoseek/lib/perl5/vendor_perl /opt/conda/envs/mitoseek/lib/perl5/5.32/core_perl /opt/conda/envs/mitoseek/lib/perl5/core_perl .) at /opt/MitoSeek/mitoSeek.pl line 24.
-BEGIN failed--compilation aborted at /opt/MitoSeek/mitoSeek.pl line 24.
-[mitoseek 17:34:59] mitoSeek.pl returned non-zero
-[mitoseek 17:34:59] WARNING: no MitoSeek structure outputs produced

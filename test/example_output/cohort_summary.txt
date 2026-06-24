@@ -1,16 +1,16 @@
 Mitochondrial SV cohort summary
 ========================================
 samples: 3
-total calls (all types): 4
+total calls (all types): 212
 
 deletion calls per caller:
   eklipse        2
   mitosalt       0
   splicebreak2   0
   mitomut        2
-  mitoseek       0
+  mitoseek       208
 
 common (~4977 bp) deletion detection per sample:
-  sv_del4977_h30           eklipse, mitomut
-  sv_del4977_h30_cram      eklipse, mitomut
+  sv_del4977_h30           eklipse, mitomut, mitoseek
+  sv_del4977_h30_cram      eklipse, mitomut, mitoseek
   sv_wt                    (none)

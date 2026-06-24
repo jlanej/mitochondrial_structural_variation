@@ -1,4 +1,4 @@
-[splicebreak2 17:37:17] running Splice-Break2 on sv_del4977_h30_cram
+[splicebreak2 18:24:20] running Splice-Break2 on sv_del4977_h30_cram
 true
 ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*r1.fastq': No such file or directory
 ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*READ1.fastq': No such file or directory
@@ -11,22 +11,45 @@ ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*R1.txt': No such fi
 ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*r1.txt': No such file or directory
 ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*READ1.txt': No such file or directory
 ls: cannot access '/out/sv_del4977_h30_cram/splicebreak2/in/*read1.txt': No such file or directory
-[splicebreak2 17:37:19] WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:
-[splicebreak2 17:37:19] ----- sv_del4977_h30_cram.log (tail) -----
-Memory: max=637m, total=637m, free=593m, used=44m
+[splicebreak2 18:24:22] WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:
+[splicebreak2 18:24:22] ----- log/temp.log (tail) -----
+Starting /out/sv_del4977_h30_cram/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 24-06-2026-18-24-20 on 02c87a4e73c2
+Splice-Break2 v3.0.0 Paired-end
+gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R1.fastq.gz}
+gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R2.fastq.gz}
+outputDir: /out/sv_del4977_h30_cram/splicebreak2/out
+logDir: /out/sv_del4977_h30_cram/splicebreak2/log
+Default Align: --align=yes
+[splicebreak2 18:24:22] ----- log/sv_del4977_h30_cram.log (tail) -----
+Input:                  	60104 reads          	9015600 bases
+Output:                 	60104 reads (100.00%) 	9015600 bases (100.00%)
+
+Time:                         	0.226 seconds.
+Reads Processed:       60104 	265.37k reads/sec
+Bases Processed:       9015k 	39.81m bases/sec
+java -ea -Xmx634m -Xms634m -cp /out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/current/ jgi.BBDuk in1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.fq in2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.fq out=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq ref=/out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/resources/truseq.fa.gz
+Executing jgi.BBDuk [in1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.fq, in2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.fq, out=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq, ref=/out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/resources/truseq.fa.gz]
+Version 38.75
+
+0.014 seconds.
+Initial:
+Memory: max=637m, total=637m, free=606m, used=31m
+
+Added 715 kmers; time: 	0.013 seconds.
+Memory: max=637m, total=637m, free=596m, used=41m
 
 Input is being processed as paired
-Started output streams:	0.006 seconds.
-Processing time:   		0.250 seconds.
+Started output streams:	0.007 seconds.
+Processing time:   		0.249 seconds.
 
 Input:                  	60104 reads 		9015600 bases.
 Contaminants:           	0 reads (0.00%) 	0 bases (0.00%)
 Total Removed:          	0 reads (0.00%) 	0 bases (0.00%)
 Result:                 	60104 reads (100.00%) 	9015600 bases (100.00%)
 
-Time:                         	0.271 seconds.
-Reads Processed:       60104 	221.39k reads/sec
-Bases Processed:       9015k 	33.21m bases/sec
+Time:                         	0.270 seconds.
+Reads Processed:       60104 	222.38k reads/sec
+Bases Processed:       9015k 	33.36m bases/sec
 java -ea -Xms300m -cp /out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/current/ jgi.ReformatReads in=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq out1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq out2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq
 Executing jgi.ReformatReads [in=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved2.fq, out1=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq, out2=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq]
 
@@ -35,14 +58,92 @@ Input is being processed as paired
 Input:                  	60104 reads          	9015600 bases
 Output:                 	60104 reads (100.00%) 	9015600 bases (100.00%)
 
-Time:                         	0.407 seconds.
-Reads Processed:       60104 	147.71k reads/sec
-Bases Processed:       9015k 	22.16m bases/sec
-[splicebreak2 17:37:19] ----- temp.log (tail) -----
-Starting /out/sv_del4977_h30_cram/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 24-06-2026-17-37-17 on 00554c34d02d
-Splice-Break2 v3.0.0 Paired-end
-gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R1.fastq.gz}
-gunzip {/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R2.fastq.gz}
-outputDir: /out/sv_del4977_h30_cram/splicebreak2/out
-logDir: /out/sv_del4977_h30_cram/splicebreak2/log
-Default Align: --align=yes
+Time:                         	0.224 seconds.
+Reads Processed:       60104 	268.65k reads/sec
+Bases Processed:       9015k 	40.30m bases/sec
+[splicebreak2 18:24:22] ----- out/sv_del4977_h30_cram_nohup.log (tail) -----
+### Running Full Splice-Break Pipeline
+### Sample: sv_del4977_h30_cram
+### PSB Pipeline: sv_del4977_h30_cram
+READ1 Line Count: 120608
+READ2 Line Count: 120608
+/out/sv_del4977_h30_cram/splicebreak2/sb_install/bbmap/v38.75/dedupe.sh in1=/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R1.fastq in2=/out/sv_del4977_h30_cram/splicebreak2/in/sv_del4977_h30_cram.R2.fastq out=/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_interleaved1.fq ac=f &> /out/sv_del4977_h30_cram/splicebreak2/log/sv_del4977_h30_cram.log
+DEDUPE READ1 Line Count: 120208
+DEDUPE READ2 Line Count: 120208
+DEDUPE + DEADAPT READ1 Line Count: 120208
+DEDUPE + DEADAPT READ2 Line Count: 120208
+400 R1 PCR replicates removed
+400 R2 PCR replicates removed
+-------------------------------------
+### MAPSPLICE: sv_del4977_h30_cram
+mkdir: created directory '/out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620'
+/usr/bin/python /out/sv_del4977_h30_cram/splicebreak2/sb_install/MapSplice/v2.2.1/mapsplice.py -1 /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq -2 /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq -c /out/sv_del4977_h30_cram/splicebreak2/sb_install/NC_012920.1 --non-canonical-double-anchor --bam --qual-scale phred33 -p 8 -o /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620 2> /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620/sv_del4977_h30_cram_mapsplice.log
+#ERROR: Mapsplice Fail. Check logs. Repeating the process with the Nsub reference (-ref=Nsub) may resolve the issue.
+[splicebreak2 18:24:22] ----- out/sv_del4977_h30_cram_mapsplice-2406202620/sv_del4977_h30_cram_mapsplice.log (tail) -----
+
+-----------------------------------------------
+[Wed Jun 24 18:24:22 2026] Beginning Mapsplice run (MapSplice v2.2.1)
+[Wed Jun 24 18:24:22 2026] Bin directory: /out/sv_del4977_h30_cram/splicebreak2/sb_install/MapSplice/v2.2.1/bin/ 
+[Wed Jun 24 18:24:22 2026] Preparing output location /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620/
+[Wed Jun 24 18:24:22 2026] Checking files or directory: /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq
+[Wed Jun 24 18:24:22 2026] Checking files or directory: /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq
+[Wed Jun 24 18:24:22 2026] Checking files or directory: /out/sv_del4977_h30_cram/splicebreak2/sb_install/NC_012920.1/
+[Wed Jun 24 18:24:22 2026] Checking Bowtie index files
+[Wed Jun 24 18:24:22 2026] Building Bowtie index for reference sequence
+[Wed Jun 24 18:24:22 2026] Inspecting Bowtie index files
+[Wed Jun 24 18:24:22 2026] Checking reference sequence length
+[Wed Jun 24 18:24:22 2026] Checking consistency of Bowtie index and reference sequence
+[Wed Jun 24 18:24:22 2026] Checking read format
+-----[Read Format: FASTQ]
+-----[Read Type: Pair End]
+Base name of two ends not consistent
+The 1th read in /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ1.deduped.deAdapt.fq and /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram-READ2.deduped.deAdapt.fq
+@sv_del4977_h30_wt:13747
+@sv_del4977_h30_wt:13747_dd0 /2
+[MapSplice Running Failed]
+Error: Checking read format failed
+[splicebreak2 18:24:22] ----- out/sv_del4977_h30_cram_mapsplice-2406202620/logs/read_chromo_sizes.log (tail) -----
+/out/sv_del4977_h30_cram/splicebreak2/sb_install/NC_012920.1/NC
+[splicebreak2 18:24:22] ----- out/sv_del4977_h30_cram_mapsplice-2406202620/logs/bowtie_build.log (tail) -----
+fchr[G]: 10305
+fchr[T]: 12474
+fchr[$]: 16568
+Exiting Ebwt::buildToDisk()
+Returning from initFromVector
+Wrote 4199216 bytes to primary EBWT file: /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620/bowtie_index/built_bowtie_index.rev.1.ebwt
+Wrote 2076 bytes to secondary EBWT file: /out/sv_del4977_h30_cram/splicebreak2/out/sv_del4977_h30_cram_mapsplice-2406202620/bowtie_index/built_bowtie_index.rev.2.ebwt
+Re-opening _in1 and _in2 as input streams
+Returning from Ebwt constructor
+Headers:
+    len: 16568
+    bwtLen: 16569
+    sz: 4142
+    bwtSz: 4143
+    lineRate: 6
+    linesPerSide: 1
+    offRate: 5
+    offMask: 0xffffffe0
+    isaRate: -1
+    isaMask: 0xffffffff
+    ftabChars: 10
+    eftabLen: 20
+    eftabSz: 80
+    ftabLen: 1048577
+    ftabSz: 4194308
+    offsLen: 518
+    offsSz: 2072
+    isaLen: 0
+    isaSz: 0
+    lineSz: 64
+    sideSz: 64
+    sideBwtSz: 56
+    sideBwtLen: 224
+    numSidePairs: 37
+    numSides: 74
+    numLines: 74
+    ebwtTotLen: 4736
+    ebwtTotSz: 4736
+    reverse: 0
+Total time for backward call to driver() for mirror index: 00:00:00
+[splicebreak2 18:24:22] ----- out/sv_del4977_h30_cram_mapsplice-2406202620/logs/check_reads_format.log (tail) -----
+read_format -q
