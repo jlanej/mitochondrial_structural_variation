@@ -11,11 +11,11 @@ Functional status of each caller on the committed test data, produced by
 |--------|:---:|:------------------------:|
 | eklipse | yes | yes |
 | mitosalt | yes | no |
-| splicebreak2 | no | no |
+| splicebreak2 | yes | no |
 | mitomut | yes | yes |
 | mitoseek | yes | yes |
 
-Callers that ran: 4/5
+Callers that ran: 5/5
 
 ## CRAM input path (`sv_del4977_h30_cram`)
 
