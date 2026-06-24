@@ -8,14 +8,17 @@
 ###############################################################################
 set -euxo pipefail
 
-# Pin the last Python-2.7-compatible biopython/numpy so the py2.7 solve is
-# deterministic (modern biopython has no py2.7 build and would force a fragile
-# legacy cascade). blast/circos/samtools/openjdk are python-independent.
+# Pin the last Python-2.7-compatible biopython/numpy/tqdm so the py2.7 solve is
+# deterministic. These pins matter: recent tqdm noarch builds still declare
+# `python >=2.7` but their code uses py3 f-strings (import SyntaxError under
+# py2.7), and modern biopython has no py2.7 build. tqdm 4.62.x is the last line
+# that still supports Python 2.7 (4.63.0 dropped it).
+# blast/circos/samtools/openjdk are python-independent.
 micromamba create -y -n py2tools \
     python=2.7 \
     biopython=1.76 \
     numpy=1.16 \
-    tqdm \
+    tqdm=4.62 \
     'blast>=2.9' \
     circos \
     'samtools>=1.9,<1.16' \
