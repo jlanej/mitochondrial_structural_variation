@@ -23,10 +23,22 @@ mkdir -p "$OUTDIR"
 bam_abs="$(readlink -f "$BAM")"
 out_abs="$(readlink -f "$OUTDIR")"
 
-# MitoSeek is locked to samtools 0.1.x semantics; the install recorded the
-# resolved legacy samtools (isolated conda env or the bundled 0.1.18 ELF).
+# MitoSeek is locked to samtools 0.1.x semantics; the install recorded a wrapper
+# that runs the resolved legacy samtools (conda 0.1.19 with its env libs, or the
+# bundled 0.1.18 ELF) in the correct environment.
 sam018="$(cat /opt/MitoSeek/.samtools_path 2>/dev/null || true)"
 [[ -n "$sam018" && -x "$sam018" ]] || sam018="/opt/MitoSeek/Resources/samtools/samtools"
+
+# Pre-flight: MitoSeek's very first action is `samtools view -H`; if the legacy
+# samtools cannot exec (missing shared libs), MitoSeek silently exit(1)s with no
+# output. Fail loudly with the real error instead. Legacy samtools prints its
+# banner to stderr and exits non-zero with no args, so match on the version
+# banner rather than the exit code.
+if ! micromamba run -n mitoseek bash -c "'$sam018' 2>&1 | grep -qi version"; then
+    log "FATAL: legacy samtools '$sam018' will not execute:"
+    micromamba run -n mitoseek bash -c "'$sam018' 2>&1 | head -5" >&2 || true
+    exit 1
+fi
 
 log "running MitoSeek on $SAMPLE (samtools: $sam018)"
 # -t 4 mitochondria-only; SV detection (discordant mates + large deletions) is

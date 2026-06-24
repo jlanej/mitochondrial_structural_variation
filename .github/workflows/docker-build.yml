@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write    # to commit refreshed example outputs back to main
   packages: write
 
 jobs:
@@ -83,3 +83,23 @@ jobs:
             docker push "$IMG:${GITHUB_REF_NAME}"
           fi
           echo "Published $IMG:latest and $IMG:$SHA"
+
+      # The smoke test wrote refreshed example outputs + SMOKE_SUMMARY.md to
+      # test/example_output/. Commit them back so the repo always carries an
+      # up-to-date "what's working vs just running" view — even when the smoke
+      # test failed (a caller did not run), so the broken state is visible.
+      # [skip ci] keeps this from triggering another build. main-branch pushes only.
+      - name: Commit example outputs
+        if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/example_output
+          if git diff --cached --quiet; then
+            echo "No example-output changes to commit."
+          else
+            git commit -m "ci: refresh example caller outputs [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}" \
+              || echo "warn: could not push example outputs (non-fatal)"
+          fi

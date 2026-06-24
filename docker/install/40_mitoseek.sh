@@ -39,15 +39,28 @@ perl -0pi -e '
   s/^use GD::Graph::lines;/eval { require GD::Graph::lines; };/m;
 ' /opt/MitoSeek/mitoSeek.pl
 
-# Legacy samtools 0.1.x in its own env; bundled ELF fallback. Both the create
-# and the path capture are in the condition so neither can abort the build.
-if micromamba create -y -n mitoseek_samtools 'samtools=0.1.19' \
-   && micromamba run -n mitoseek_samtools bash -lc 'command -v samtools' > /opt/MitoSeek/.samtools_path; then
-    echo "MitoSeek samtools (isolated conda env): $(cat /opt/MitoSeek/.samtools_path)"
+# Legacy samtools 0.1.x in its own env. MitoSeek shells out to this binary
+# directly (via -samtools) FROM the 'mitoseek' env, so a bare conda binary from
+# a different env can't find its shared libs -> fails to exec -> MitoSeek dies
+# on an empty header. Wrap it so its env libs always resolve (LD_LIBRARY_PATH);
+# fall back to the bundled 0.1.18 ELF if the 0.1.19 solve fails.
+if micromamba create -y -n mitoseek_samtools 'samtools=0.1.19'; then
+    cat > /opt/MitoSeek/samtools_legacy <<'EOF'
+#!/usr/bin/env bash
+P=/opt/conda/envs/mitoseek_samtools
+export LD_LIBRARY_PATH="$P/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$P/bin/samtools" "$@"
+EOF
+    echo "MitoSeek samtools: isolated conda env (samtools 0.1.19)"
 else
-    echo "/opt/MitoSeek/Resources/samtools/samtools" > /opt/MitoSeek/.samtools_path
-    echo "MitoSeek samtools (bundled 0.1.18 ELF): $(cat /opt/MitoSeek/.samtools_path)"
+    cat > /opt/MitoSeek/samtools_legacy <<'EOF'
+#!/usr/bin/env bash
+exec /opt/MitoSeek/Resources/samtools/samtools "$@"
+EOF
+    echo "MitoSeek samtools: bundled 0.1.18 ELF (conda 0.1.19 unavailable)"
 fi
+chmod +x /opt/MitoSeek/samtools_legacy
+echo /opt/MitoSeek/samtools_legacy > /opt/MitoSeek/.samtools_path
 
 # The two pure-Perl modules the heteroplasmy path genuinely needs.
 micromamba run -n mitoseek cpanm --notest --no-man-pages \

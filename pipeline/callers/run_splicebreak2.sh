@@ -44,7 +44,13 @@ cp "$r2_abs" "$indir/${SAMPLE}.R2.fastq.gz"
 
 log "running Splice-Break2 on $SAMPLE"
 # Runs in py2tools env: provides Java 8 + Python 2 (and /usr/bin/python -> py2).
-micromamba run -n py2tools bash -c "bash '$SB_PATH/Splice-Break2_paired-end.sh' \
+# bbmap (dedupe/bbduk/reformat) autodetects a JVM heap and sets -Xms == -Xmx to
+# ~85% of free RAM; on memory-limited runners the JVM fails to RESERVE that heap
+# at startup and aborts in ~2-3s (its stderr is swallowed into $sblog). Cap it
+# via RQCMEM (MB) — bbmap's calcmem.sh uses RQCMEM to bound -Xmx/-Xms for every
+# bbmap tool. Override with SB_MEM_MB for big cohorts on roomy HPC nodes.
+SB_MEM_MB="${SB_MEM_MB:-2000}"
+micromamba run -n py2tools bash -c "export RQCMEM='$SB_MEM_MB'; bash '$SB_PATH/Splice-Break2_paired-end.sh' \
     '$indir' '$sbout' '$sblog' '$SB_PATH' \
     --align=yes --ref=rCRS --fastq_keep=no --skip_preAlign=no" || log "driver returned non-zero"
 
@@ -54,7 +60,13 @@ if [[ -n "$res" ]]; then
     cp "$res" "$out_abs/${SAMPLE}_LargeMTDeletions_WGS-only_NoPositionFilter.txt"
     log "calls -> ${SAMPLE}_LargeMTDeletions_WGS-only_NoPositionFilter.txt"; ok=1
 else
-    log "WARNING: no LargeMTDeletions output produced"
+    log "WARNING: no LargeMTDeletions output produced; Splice-Break2 driver logs follow:"
+    # The driver redirects bbmap/MapSplice stderr into $sblog/<sample>.log; surface
+    # the tail so a swallowed JVM/heap error is visible in the caller log.
+    for lf in "$sblog"/*.log; do
+        [[ -f "$lf" ]] || continue
+        log "----- $(basename "$lf") (tail) -----"; tail -n 25 "$lf" >&2
+    done
 fi
 # Free the bulky per-sample install copy unless asked to keep it.
 [[ "${SB_KEEP_INSTALL:-0}" == "1" ]] || rm -rf "$sbwork"

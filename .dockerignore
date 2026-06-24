@@ -2,7 +2,7 @@
 .git
 .github
 slurm
-test/data
+test
 README.md
 *.md
 **/__pycache__

@@ -31,6 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libncurses5 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Best-effort libtinfo.so.5 for MitoSeek's bundled 0.1.18 samtools ELF fallback
+# (the primary path uses conda samtools 0.1.19). Absent on some Debian releases,
+# so tolerate failure.
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends libtinfo5 || true) \
+    && rm -rf /var/lib/apt/lists/*
+
 # Channel config (conda-forge first, then bioconda, per bioconda guidance)
 RUN micromamba config append channels conda-forge \
     && micromamba config append channels bioconda \
