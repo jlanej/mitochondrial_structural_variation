@@ -1,0 +1,5 @@
+sample	caller	sv_type	bp5	bp3	svlen	support	het	common_deletion	extra
+sv_del4977_h30	eklipse	deletion	8469	13447	4978	249	0.09544	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_del4977_h30	mitomut	deletion	8471	13449	4978	141	0.2501	1	s1=70;s2=71
+sv_del4977_h30_cram	eklipse	deletion	8469	13447	4978	249	0.09544	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_del4977_h30_cram	mitomut	deletion	8471	13449	4978	141	0.2501	1	s1=70;s2=71
