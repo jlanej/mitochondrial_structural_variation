@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+###############################################################################
+# mitochondrial_structural_variation project rules
+###############################################################################
+# The generic template above ignores "lib/" and "share/python-wheels/"; make
+# sure our tracked source directories are NOT swept up by those patterns.
+!pipeline/lib/
+!pipeline/lib/**
+# …but still never track compiled artifacts inside it
+pipeline/lib/__pycache__/
+
+# Pipeline working/output dirs and built containers
+/work/
+/out/
+*.sif
+*.sif.tmp
+
+# CRAM reference cache populated at runtime
+refcache/
+

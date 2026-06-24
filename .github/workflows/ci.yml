@@ -1,0 +1,49 @@
+name: ci
+
+# Fast checks that need no Docker image: parser unit tests, shell + python
+# syntax. The heavy build/functional test lives in docker-build.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Parser unit tests
+        run: python3 test/test_parsers.py
+
+      - name: Post-process CLI smoke (no Docker)
+        run: |
+          python3 -c "import ast,sys; ast.parse(open('pipeline/postprocess.py').read())"
+          python3 pipeline/postprocess.py --help >/dev/null
+
+      - name: Python syntax (compile all)
+        run: python3 -m py_compile pipeline/postprocess.py pipeline/lib/parsers.py test/test_parsers.py
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Shell syntax check (bash -n)
+        run: |
+          set -e
+          while IFS= read -r f; do echo "bash -n $f"; bash -n "$f"; done < <(
+            find pipeline slurm test -name '*.sh' -o -name '*.sbatch' | sort)
+
+      - name: Shellcheck (errors only)
+        run: |
+          shellcheck --severity=error --shell=bash \
+            pipeline/*.sh pipeline/callers/*.sh test/*.sh slurm/*.sh slurm/*.sbatch

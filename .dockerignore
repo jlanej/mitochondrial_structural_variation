@@ -1,0 +1,11 @@
+# Keep the build context small: only what the image needs.
+.git
+.github
+slurm
+test/data
+README.md
+*.md
+**/__pycache__
+*.pyc
+.pytest_cache
+*.sif
