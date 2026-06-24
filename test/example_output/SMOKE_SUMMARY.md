@@ -1,26 +1,44 @@
 # Smoke-test summary
 
-Functional status of each caller on the committed test data, produced by
-`test/smoke_test.sh` during the CI image build. The positive control
-`sv_del4977_h30` carries the ~4977 bp common deletion (m.8470_13447del).
+Functional status of each caller across the MitoHPC test cohort, produced by
+`test/smoke_test.sh` during the CI image build (scope: full).
 
-- **ran** — the caller completed and produced its expected output file (gated: a 'no' fails the build)
-- **detected common deletion** — it actually called del4977 in `sv_del4977_h30` (not gated; a miss is only a warning)
+## Operating + common-deletion detection (positive control `sv_del4977_h30`)
+
+- **ran** — completed and produced its expected output file (GATED — must pass)
+- **detected common deletion** — called del4977 in `sv_del4977_h30` (evaluation only)
 
 | caller | ran | detected common deletion |
 |--------|:---:|:------------------------:|
+| mitohpc | yes | yes |
 | eklipse | yes | yes |
 | mitosalt | yes | no |
 | splicebreak2 | yes | no |
 | mitomut | yes | yes |
 | mitoseek | yes | yes |
 
-Callers that ran: 5/5
+## Caller comparison across MitoHPC scenarios
 
-## CRAM input path (`sv_del4977_h30_cram`)
+Evaluation only — a record of how each third-party caller behaves on the diverse test constructs (we do not control their source, so nothing here gates the build). **detected** = at least one caller matched the truth deletion (common deletion within +/-80 bp; others within +/-250 bp).
 
-Common deletion detected by: eklipse,mitomut,mitoseek
+| sample | truth event | detected | callers |
+|--------|-------------|:--------:|---------|
+| sv_del4977_h05 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_del4977_h30 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_del6000_h50 | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_dloop | del 400-6000 | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_dup | dup 6000-7000 | yes | mitohpc, mitomut, mitoseek |
+| sv_homoplasmy | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_lowcov | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut |
+| sv_multidel | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_multidel | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_origin | del 16400-200 | no | (none) |
+| sv_wt | wild-type (no SV) | - | n/a (specificity sample) |
+| sv_del4977_h30_cram | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| spike_del4977_h20 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitoseek |
+| NA12718 | wild-type (no SV) | - | n/a (specificity sample) |
 
-## Specificity — wild-type negative (`sv_wt`)
+**Sensitivity — truth events no caller detected (observation):**
 
-Common deletion flagged by: (none)  _(expected: none)_
+- sv_origin del 16400-200 detected by no caller
+

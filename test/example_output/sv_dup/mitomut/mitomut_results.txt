@@ -1,0 +1,2 @@
+Total Reads	S1 Reads	S2 Reads	Start	End	Heteroplasmy Level
+94	36	58	5999	7000	0.10093034918634632
