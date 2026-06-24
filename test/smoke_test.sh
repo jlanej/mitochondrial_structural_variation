@@ -15,15 +15,15 @@
 # multi-deletion, tandem duplication, origin-crossing deletion, wild-type, plus
 # real 1000G + a del4977 spike-in), then asserts:
 #
-#   HARD FAILS (block the build):
-#     * any caller did not RUN on the canonical positive sv_del4977_h30
+#   HARD FAILS (block the build) — only things the PIPELINE controls:
+#     * any caller did not RUN (produce output) on the canonical positive
+#       sv_del4977_h30  ("are the callers operating?")
 #     * post-processing produced no cohort tables
-#     * SPECIFICITY: a caller called the ~4977 bp common deletion on a sample
-#       that does not carry it (wild-type / duplication / origin / del6000 / dloop)
-#     * SENSITIVITY: the common deletion is NOT detected on sv_del4977_h30
 #     * a degenerate input (wrong-contig / empty BAM) did not fail cleanly
-#   WARNINGS (do NOT block): per-scenario sensitivity misses by the heuristic
-#     callers (reported in the scenario matrix).
+#   EVALUATION ONLY (never blocks): how each third-party caller DETECTS the
+#     diverse constructs is recorded as a caller-comparison matrix. We do not
+#     control the callers' source, so their sensitivity/specificity behaviour is
+#     reported (in SMOKE_SUMMARY.md), not asserted.
 #
 # Writes test/example_output/ (deterministic result files + SMOKE_SUMMARY.md +
 # any FAILED caller logs) for CI to commit.
@@ -153,23 +153,18 @@ for caller in eklipse mitosalt splicebreak2 mitomut mitoseek; do
 done
 
 ###############################################################################
-# 2. Scenario sensitivity/specificity (HARD specificity + canonical sensitivity;
-#    other sensitivity = warnings). Runs on the host over the cohort table.
+# 2. Caller comparison across scenarios (EVALUATION ONLY — never gates). Builds
+#    the scenario x caller matrix from the cohort table on the host.
 ###############################################################################
-note "scenario evaluation vs MitoHPC truth"
+note "caller comparison across MitoHPC scenarios (evaluation, not gated)"
 cohort="$OUT/cohort_sv_calls.tsv"
 scen_md="$OUT/scenario_matrix.md"
-[[ -f "$OUT/cohort_common_deletion.tsv" ]] || err "post-processing produced no cohort tables"
+[[ -f "$OUT/cohort_common_deletion.tsv" && -f "$cohort" ]] \
+    || err "post-processing produced no cohort tables"
 if [[ -f "$cohort" ]]; then
-    if python3 "$REPO/test/check_scenarios.py" --calls "$cohort" \
-            --truth "$REPO/test/data/truth.tsv" --out-md "$scen_md" \
-            --samples "${SAMPLES[*]}"; then
-        echo "scenario gates passed"
-    else
-        err "scenario hard-gate failure (see scenario matrix above)"
-    fi
-else
-    err "cohort_sv_calls.tsv not produced"
+    python3 "$REPO/test/check_scenarios.py" --calls "$cohort" \
+        --truth "$REPO/test/data/truth.tsv" --out-md "$scen_md" \
+        --samples "${SAMPLES[*]}" || true
 fi
 
 ###############################################################################
@@ -239,8 +234,8 @@ detected_by() {  # sample caller -> yes/no (common deletion)
     echo
     echo "## Operating + common-deletion detection (positive control \`$POS\`)"
     echo
-    echo "- **ran** — completed and produced its expected output file (gated)"
-    echo "- **detected common deletion** — called del4977 in \`$POS\` (gated: >=1 caller)"
+    echo "- **ran** — completed and produced its expected output file (GATED — must pass)"
+    echo "- **detected common deletion** — called del4977 in \`$POS\` (evaluation only)"
     echo
     echo "| caller | ran | detected common deletion |"
     echo "|--------|:---:|:------------------------:|"

@@ -145,29 +145,28 @@ Two workflows:
 * [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — fast checks on every
   push/PR: parser unit tests, shell + Python syntax, shellcheck.
 
-The smoke test ([`test/smoke_test.sh`](test/smoke_test.sh)) mirrors the
-[MitoHPC `sv-calling`](https://github.com/jlanej/MitoHPC/tree/sv-calling/test/sv)
-test suite (the source of our test BAMs): it runs the full pipeline over the
-whole diverse cohort and asserts —
+The smoke test ([`test/smoke_test.sh`](test/smoke_test.sh)) runs the full
+pipeline over the whole [MitoHPC `sv-calling`](https://github.com/jlanej/MitoHPC/tree/sv-calling/test/sv)
+test cohort (the source of our test BAMs). It separates two concerns:
 
-* **Operating** — every caller runs to completion on the positive control and
-  emits its expected output (hard gate);
-* **Sensitivity** — the common deletion is detected by ≥1 caller on
-  `sv_del4977_h30`, via the BAM **and** the CRAM input path (hard gate); plus a
-  per-scenario sensitivity matrix across all constructs (common deletion at
-  varying VAF/depth, non-repeat deletion, D-loop deletion, multi-deletion,
-  duplication, origin-crossing, low coverage, real spike-in) — reported as
-  warnings since the callers are heuristic;
-* **Specificity** — no caller calls the common deletion on a sample that doesn't
-  carry it (wild-type, duplication, origin-crossing, real healthy 1000G) — hard
-  gate ([`test/check_scenarios.py`](test/check_scenarios.py));
-* **Robustness** — degenerate inputs (wrong-contig / empty BAM) fail cleanly
-  with no traceback (hard gate).
+* **Hard gates** — only things the *pipeline* controls:
+  - **Operating** — every caller runs to completion on the positive control
+    `sv_del4977_h30` and emits its expected output;
+  - post-processing produces the cohort tables;
+  - **Robustness** — degenerate inputs (wrong-contig / empty BAM) fail cleanly,
+    no traceback.
+* **Evaluation only (never gates)** — how each *third-party caller* behaves
+  across the diverse constructs (common deletion at varying VAF/depth, non-repeat
+  deletion, D-loop deletion, multi-deletion, duplication, origin-crossing, low
+  coverage, real spike-in / healthy 1000G). We don't control the callers' source,
+  so their sensitivity/specificity is **recorded as a caller-comparison matrix**
+  ([`test/check_scenarios.py`](test/check_scenarios.py)), not asserted.
 
-The scenario × caller matrix and per-caller operating/detection status are
-written to [`test/example_output/SMOKE_SUMMARY.md`](test/example_output) on each
-build. `SCOPE` controls breadth: `full` (default, all scenarios) on main,
-`quick` (3-sample subset) on PRs.
+The scenario × caller comparison matrix and per-caller operating/detection
+status are written to
+[`test/example_output/SMOKE_SUMMARY.md`](test/example_output) on each build.
+`SCOPE` controls breadth: `full` (default, all scenarios) on main, `quick`
+(3-sample subset) on PRs.
 
 Run the unit tests locally (no Docker needed):
 

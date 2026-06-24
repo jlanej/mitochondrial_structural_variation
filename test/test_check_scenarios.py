@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Unit tests for the scenario evaluator (test/check_scenarios.py).
+"""Unit tests for the scenario comparison tool (test/check_scenarios.py).
 
-Runs without Docker: builds synthetic truth + cohort-call tables and asserts the
-HARD specificity/sensitivity gates and the per-scenario warnings behave.
+The tool is EVALUATION-ONLY: it classifies, per scenario, which callers detect
+each truth deletion and where a caller reports the common deletion on a
+non-carrier — but it never gates (always exits 0). These tests assert the
+classification (sensitivity misses / specificity observations) and that it does
+not fail the build.
 
 Run:  python3 test/test_check_scenarios.py   (or: pytest test/test_check_scenarios.py)
 """
@@ -30,63 +33,74 @@ def _calls(rows):
     return out
 
 
-def test_good_cohort_passes():
+def test_detection_recorded_and_nothing_gated():
     calls = _calls([
         ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
         ("sv_del4977_h30", "mitomut", "deletion", 8482, 13446),
         ("sv_del6000_h50", "eklipse", "deletion", 5999, 10999),
-        ("sv_dup", "mitoseek", "deletion", 6100, 6960),     # a non-common call: fine
     ])
-    samples = ["sv_del4977_h30", "sv_del6000_h50", "sv_dup", "sv_origin", "sv_wt"]
-    rows, hard, warn = cs.evaluate(TRUTH, calls, samples)
-    assert hard == [], hard
-    # origin not detected -> a (non-gated) warning
-    assert any("sv_origin" in w for w in warn)
+    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
+    # del4977_h30 detected by two callers -> a "yes" row listing both
+    assert any(r[0] == "sv_del4977_h30" and r[2] == "yes"
+               and "eklipse" in r[3] and "mitomut" in r[3] for r in rows), rows
+    # origin not detected -> recorded as a sensitivity observation (not a gate)
+    assert any("sv_origin" in m for m in sens_miss)
+    # no false-positive common-deletion calls
+    assert spec_obs == [], spec_obs
 
 
-def test_specificity_hard_fail_on_wildtype_common_call():
+def test_wildtype_common_call_is_observation_only():
     calls = _calls([
         ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
-        ("sv_wt", "eklipse", "deletion", 8470, 13447),       # spurious COMMON on WT
+        ("sv_wt", "eklipse", "deletion", 8470, 13447),       # FP common del on WT
     ])
-    rows, hard, warn = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert any("specificity" in h and "sv_wt" in h for h in hard), hard
+    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
+    assert any("sv_wt" in m and "eklipse" in m for m in spec_obs), spec_obs
 
 
-def test_specificity_hard_fail_on_duplication_common_call():
+def test_duplication_common_call_is_observation_only():
     calls = _calls([
-        ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
-        ("sv_dup", "mitomut", "deletion", 8469, 13447),      # spurious COMMON on dup
+        ("sv_dup", "mitomut", "deletion", 8469, 13447),      # FP common del on dup
     ])
-    rows, hard, warn = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert any("specificity" in h and "sv_dup" in h for h in hard), hard
+    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
+    assert any("sv_dup" in m for m in spec_obs), spec_obs
 
 
-def test_sensitivity_hard_fail_when_canonical_missing():
-    calls = _calls([
-        ("sv_del6000_h50", "eklipse", "deletion", 5999, 10999),
-    ])  # nothing for sv_del4977_h30
-    rows, hard, warn = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert any("sensitivity" in h and "sv_del4977_h30" in h for h in hard), hard
-
-
-def test_non_common_deletion_does_not_trip_specificity():
-    # del6000 carries a (non-common) deletion; detecting it must NOT be a
-    # specificity failure, and not detecting the common deletion is fine.
-    calls = _calls([
-        ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
-        ("sv_del6000_h50", "eklipse", "deletion", 5999, 10999),
-    ])
-    rows, hard, warn = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert hard == [], hard
+def test_non_common_deletion_is_not_a_specificity_observation():
+    # del6000 carries a (non-common) deletion; detecting it must NOT be flagged
+    # as a common-deletion false positive.
+    calls = _calls([("sv_del6000_h50", "eklipse", "deletion", 5999, 10999)])
+    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
+    assert spec_obs == [], spec_obs
 
 
 def test_cram_alias_inherits_truth():
     truth = {"sv_del4977_h30": [("del", 8469, 13447)]}
     calls = _calls([("sv_del4977_h30_cram", "mitomut", "deletion", 8482, 13446)])
-    rows, hard, warn = cs.evaluate(truth, calls, ["sv_del4977_h30_cram"])
-    # the cram sample is scored against the base sample's common-deletion truth
+    rows, sens_miss, spec_obs = cs.evaluate(truth, calls, ["sv_del4977_h30_cram"])
     assert any(r[0] == "sv_del4977_h30_cram" and r[2] == "yes" for r in rows), rows
+
+
+def test_main_always_exits_zero(tmp_path=None):
+    import tempfile
+    d = tempfile.mkdtemp()
+    calls = os.path.join(d, "calls.tsv")
+    truth = os.path.join(d, "truth.tsv")
+    out = os.path.join(d, "m.md")
+    with open(calls, "w") as fh:
+        fh.write("sample\tcaller\tsv_type\tbp5\tbp3\tsvlen\tsupport\thet\tcommon_deletion\textra\n")
+        # a wild-type false positive — would be a "gate" failure if we gated, but
+        # this tool only reports, so it must still exit 0.
+        fh.write("sv_wt\teklipse\tdeletion\t8470\t13447\t4977\t5\t0.01\t1\tx\n")
+    with open(truth, "w") as fh:
+        fh.write("#sample\tkind\tbp5\tbp3\tsvlen\thet\tdepth\n")
+        fh.write("sv_wt\tnone\t.\t.\t.\t0\t300\n")
+    rc = cs.main(["--calls", calls, "--truth", truth, "--out-md", out,
+                  "--samples", "sv_wt", "--no-real"])
+    assert rc == 0, rc
+    assert os.path.isfile(out)
+    import shutil
+    shutil.rmtree(d, ignore_errors=True)
 
 
 def _main():
