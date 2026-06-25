@@ -13,7 +13,7 @@ Functional status of each caller across the MitoHPC test cohort, produced by
 | mitohpc | yes | yes |
 | eklipse | yes | yes |
 | mitosalt | yes | yes |
-| splicebreak2 | yes | no |
+| splicebreak2 | yes | yes |
 | mitomut | yes | yes |
 | mitoseek | yes | yes |
 
@@ -23,19 +23,19 @@ Evaluation only — a record of how each third-party caller behaves on the diver
 
 | sample | truth event | detected | callers |
 |--------|-------------|:--------:|---------|
-| sv_del4977_h05 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| sv_del4977_h30 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| sv_del6000_h50 | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| sv_dloop | del 400-6000 | yes | eklipse, mitohpc, mitomut, mitoseek |
+| sv_del4977_h05 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| sv_del4977_h30 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| sv_del6000_h50 | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| sv_dloop | del 400-6000 | yes | eklipse, mitohpc, mitomut, mitoseek, splicebreak2 |
 | sv_dup | dup 6000-7000 | yes | mitohpc, mitomut, mitosalt, mitoseek |
-| sv_homoplasmy | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| sv_lowcov | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt |
-| sv_multidel | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| sv_multidel | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
+| sv_homoplasmy | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| sv_lowcov | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, splicebreak2 |
+| sv_multidel | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| sv_multidel | del 5999-10999 | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
 | sv_origin | del 16400-200 | no | (none) |
 | sv_wt | wild-type (no SV) | - | n/a (specificity sample) |
-| sv_del4977_h30_cram | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
-| spike_del4977_h20 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek |
+| sv_del4977_h30_cram | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
+| spike_del4977_h20 | del 8469-13447 [COMMON] | yes | eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2 |
 | NA12718 | wild-type (no SV) | - | n/a (specificity sample) |
 
 **Sensitivity — truth events no caller detected (observation):**
