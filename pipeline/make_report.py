@@ -83,6 +83,36 @@ def load_runtime(path):
     return rt
 
 
+def _pctile(xs, q):
+    if not xs:
+        return None
+    if len(xs) == 1:
+        return xs[0]
+    pos = (q / 100.0) * (len(xs) - 1)
+    lo = int(pos); frac = pos - lo
+    return xs[lo] * (1 - frac) + xs[min(lo + 1, len(xs) - 1)] * frac
+
+
+def boxstats(vals, nd=1):
+    """Five-number summary + Tukey whiskers/outliers + mean for a boxplot."""
+    xs = sorted(v for v in vals if v is not None)
+    n = len(xs)
+    if n == 0:
+        return None
+    q1, med, q3 = _pctile(xs, 25), _pctile(xs, 50), _pctile(xs, 75)
+    iqr = q3 - q1
+    lof, hif = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    inside = [x for x in xs if lof <= x <= hif]
+    rnd = lambda v: round(v, nd)
+    return {
+        "n": n, "min": rnd(xs[0]), "q1": rnd(q1), "med": rnd(med),
+        "q3": rnd(q3), "max": rnd(xs[-1]), "mean": rnd(sum(xs) / n),
+        "wlo": rnd(min(inside) if inside else xs[0]),
+        "whi": rnd(max(inside) if inside else xs[-1]),
+        "outliers": [rnd(x) for x in xs if x < lof or x > hif][:40],
+    }
+
+
 def base_sample(s):
     return s[:-5] if s.endswith("_cram") else s
 
@@ -152,6 +182,7 @@ def build(calls, runtime, truth, samples):
             "total": round(sum(secs), 1) if secs else 0.0,
             "mean": round(sum(secs) / len(secs), 1) if secs else None,
             "median": round(median(secs), 1) if secs else None,
+            "box": boxstats(secs),
             "per_sample": rt_per_sample.get(c, {}),
         }
 
@@ -247,8 +278,10 @@ border-radius:8px;padding:6px 9px;font-size:12px;color:#fff;opacity:0;transition
   <div class="cards" id="cards"></div>
 
   <h2>Runtime per caller</h2>
-  <p class="legend">Mean wall-clock seconds per sample (successful runs). Hover a bar for detail.</p>
+  <p class="legend">Wall-clock seconds per sample across the cohort (successful runs) — box = IQR,
+    line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers. Hover the box for detail.</p>
   <div class="panel"><div id="chart-runtime"></div></div>
+  <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
 
   <h2>Sensitivity per caller</h2>
   <p class="legend">Share of truth deletions detected (any matching call; common deletion within
@@ -325,10 +358,40 @@ function barChart(id, items, unit){
     b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t)); b.onmouseleave=hideTip;});
 }
 
-barChart('chart-runtime', CAL.map(c=>{const r=D.runtime[c];
-  return {label:c, v:r.mean||0, color:col(c),
-    vlabel:r.mean==null?'n/a':r.mean,
-    tip:`<b>${c}</b><br>mean ${r.mean==null?'n/a':r.mean+'s'} · median ${r.median==null?'n/a':r.median+'s'}<br>total ${r.total}s over ${r.n} run(s)`};}), 's');
+// ---- horizontal box-and-whisker chart ----
+function boxChart(id, items){
+  items=items.filter(d=>d.b);
+  const el=document.getElementById(id);
+  if(!items.length){el.innerHTML='<span class="legend">no runtime data</span>';return;}
+  const W=860,rowH=34,padL=120,padR=70,padT=10,padB=26,hb=9;
+  const H=padT+padB+items.length*rowH;
+  let mx=0; items.forEach(d=>{mx=Math.max(mx,d.b.whi,...(d.b.outliers||[]));}); mx=Math.max(1,mx);
+  const X=v=>padL+(W-padL-padR)*(v/mx);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for(let i=0;i<=4;i++){const gx=X(mx*i/4);s+=`<line class="gl" x1="${gx}" y1="${padT}" x2="${gx}" y2="${H-padB}"/>`;
+    s+=`<text x="${gx}" y="${H-9}" text-anchor="middle" fill="#9aa4b2">${(mx*i/4).toFixed(mx<10?1:0)}</text>`;}
+  s+=`<text x="${(padL+W-padR)/2}" y="${H-0}" text-anchor="middle" fill="#9aa4b2">seconds / sample</text>`;
+  items.forEach((d,i)=>{const b=d.b,y=padT+i*rowH+rowH/2-2,c=d.color;
+    s+=`<text x="${padL-8}" y="${y+3}" text-anchor="end">${d.label}</text>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y}" x2="${X(b.whi)}" y2="${y}" stroke="${c}" stroke-width="1" opacity=".6"/>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y-5}" x2="${X(b.wlo)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<line x1="${X(b.whi)}" y1="${y-5}" x2="${X(b.whi)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<rect class="bar" x="${X(b.q1)}" y="${y-hb}" width="${Math.max(1,X(b.q3)-X(b.q1))}" height="${2*hb}" rx="2" fill="${c}" fill-opacity=".28" stroke="${c}" data-t="${encodeURIComponent(`<b>${d.label}</b> (n=${b.n})<br>median ${b.med}s · mean ${b.mean}s<br>IQR ${b.q1}–${b.q3}s · range ${b.min}–${b.max}s`)}"/>`;
+    s+=`<line x1="${X(b.med)}" y1="${y-hb}" x2="${X(b.med)}" y2="${y+hb}" stroke="${c}" stroke-width="2"/>`;
+    const mp=X(b.mean);s+=`<path d="M${mp},${y-5} L${mp+5},${y} L${mp},${y+5} L${mp-5},${y} Z" fill="var(--bg)" stroke="${c}" stroke-width="1.5"/>`;
+    (b.outliers||[]).forEach(o=>{s+=`<circle cx="${X(o)}" cy="${y}" r="2.3" fill="${c}" fill-opacity=".7"/>`;});
+  });
+  s+=`</svg>`;el.innerHTML=s;
+  el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
+}
+boxChart('chart-runtime', CAL.map(c=>({label:c, color:col(c), b:D.runtime[c].box})));
+// runtime summary table (fastest median first)
+(function(){
+  const rows=CAL.map(c=>({c,b:D.runtime[c].box})).filter(x=>x.b).sort((a,b)=>a.b.med-b.b.med);
+  let h=`<thead><tr><th>caller</th><th class="num">n</th><th class="num">median</th><th class="num">mean</th><th class="num">p25</th><th class="num">p75</th><th class="num">min</th><th class="num">max</th><th class="num">total</th></tr></thead><tbody>`;
+  rows.forEach(d=>{const b=d.b;h+=`<tr><td>${d.c}</td><td class="num">${b.n}</td><td class="num">${b.med}s</td><td class="num">${b.mean}s</td><td class="num">${b.q1}s</td><td class="num">${b.q3}s</td><td class="num">${b.min}s</td><td class="num">${b.max}s</td><td class="num">${D.runtime[d.c].total}s</td></tr>`;});
+  h+=`</tbody>`;document.getElementById('runtime-table').innerHTML=h;
+})();
 
 barChart('chart-sens', CAL.map(c=>{const d=D.detection[c];
   return {label:c, v:d.n_detected, color:col(c),

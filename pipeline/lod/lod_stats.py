@@ -217,3 +217,26 @@ def _pct(sorted_vals, q):
     hi = min(lo + 1, len(sorted_vals) - 1)
     frac = pos - lo
     return sorted_vals[lo] * (1 - frac) + sorted_vals[hi] * frac
+
+
+def boxstats(vals):
+    """Five-number summary + Tukey whiskers/outliers + mean for a boxplot.
+
+    Returns None for empty input. Whiskers extend to the most extreme value
+    within 1.5*IQR of the quartiles; points beyond are listed as outliers.
+    """
+    xs = sorted(v for v in vals if v is not None and v == v)
+    n = len(xs)
+    if n == 0:
+        return None
+    q1, med, q3 = _pct(xs, 25), _pct(xs, 50), _pct(xs, 75)
+    iqr = q3 - q1
+    lo_fence, hi_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    inside = [x for x in xs if lo_fence <= x <= hi_fence]
+    return {
+        "n": n, "min": xs[0], "q1": q1, "med": med, "q3": q3, "max": xs[-1],
+        "wlo": min(inside) if inside else xs[0],
+        "whi": max(inside) if inside else xs[-1],
+        "mean": sum(xs) / n,
+        "outliers": [x for x in xs if x < lo_fence or x > hi_fence],
+    }

@@ -72,6 +72,19 @@ def test_bootstrap_ci_brackets_lod():
     assert math.isfinite(lo) and math.isfinite(hi) and 0 <= lo <= hi <= 1
 
 
+def test_boxstats():
+    assert S.boxstats([]) is None
+    b = S.boxstats([5, 1, 3, 2, 4])               # 1..5
+    assert b["n"] == 5 and b["min"] == 1 and b["max"] == 5
+    assert b["med"] == 3 and b["q1"] == 2 and b["q3"] == 4
+    assert abs(b["mean"] - 3) < 1e-9 and b["outliers"] == []
+    # a high outlier is excluded from the whisker and listed
+    b2 = S.boxstats([1, 1, 1, 1, 100])
+    assert 100 in b2["outliers"] and b2["whi"] < 100
+    assert S.boxstats([7])["med"] == 7            # singleton
+    assert S.boxstats([None, float("nan"), 2, 4])["n"] == 2
+
+
 def test_roc_pr_and_mcc():
     r = S.roc_pr([0.9, 0.8, 0.7, 0.6, 0.2, 0.1], [1, 1, 0, 1, 0, 0])
     assert r is not None and 0.5 < r["auroc"] <= 1 and 0.5 < r["auprc"] <= 1

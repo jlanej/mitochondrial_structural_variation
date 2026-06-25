@@ -227,9 +227,16 @@ cells across 24 threads, so the scheduler isn't flooded (full grid ≈ 4200 cell
   heteroplasmy → **LOD50 / LOD95** (Firth-penalized logistic, separation-robust;
   pure-Python, no scipy) with Wilson + cluster-bootstrap CIs and an empirical
   transition read-out;
+* a **runtime summary** (`lod_runtime.tsv`) — per-cell wall-clock distribution
+  per caller (and per arm): n, mean, median, p25/p75, min/max, total seconds;
 * an interactive **`lod_report/index.html`** — methods, per-caller LOD curves,
-  detection heatmap, an LOD summary table, runtime, pipeline-vs-circular
-  comparison, and an interpretation guide.
+  detection heatmap, an LOD summary table, **runtime box-and-whisker plots + a
+  table**, pipeline-vs-circular comparison, and an interpretation guide.
+
+All callers (including the MitoHPC reference) run in the **same image, env, and
+node**, each timed identically by `run_sample.sh` (`t0=$SECONDS … $((SECONDS-t0))`),
+so the runtimes are a fair head-to-head; the `.sif` is built once per submission
+and reused across array tasks (no per-run image pull).
 
 CI runs a **single-iteration gate** ([`test/lod_smoke.sh`](test/lod_smoke.sh)) —
 one tiny cell through both arms — to prove the machinery runs; the full sweep is
@@ -258,7 +265,7 @@ pipeline/
     run_cell.sh            one cell: generate + run callers (both arms) + score
     score_cell.py          score detection vs truth (BP_TOL=30)
     lod_stats.py           pure-Python LOD stats kernel (Firth logistic, Wilson)
-    analyze_lod.py         sweep -> lod_cells.tsv + lod_fits.tsv
+    analyze_lod.py         sweep -> lod_cells.tsv + lod_fits.tsv + lod_runtime.tsv
     make_lod_report.py     interactive LOD report generator
 slurm/
   run_mito_sv.sh           cohort HPC launcher (the entry point)

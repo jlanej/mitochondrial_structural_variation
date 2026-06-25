@@ -16,6 +16,9 @@ import os
 import sys
 from collections import defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lod_stats as S  # noqa: E402
+
 CALLER_ORDER = ["mitohpc", "eklipse", "mitosalt", "splicebreak2", "mitomut", "mitoseek"]
 
 
@@ -24,6 +27,15 @@ def _f(x):
         return float(x)
     except (ValueError, TypeError):
         return None
+
+
+def _round_box(b, nd=2):
+    """Round a boxstats dict for compact JSON (cap outliers to keep size sane)."""
+    r = {k: (round(v, nd) if isinstance(v, float) else v)
+         for k, v in b.items() if k != "outliers"}
+    outs = sorted(round(x, nd) for x in b["outliers"])
+    r["outliers"] = outs[:40]
+    return r
 
 
 def load_tsv(path):
@@ -62,19 +74,31 @@ def build(cells, fits, sweep, arms):
             "lod95_lo": _f(r["lod95_lo"]), "lod95_hi": _f(r["lod95_hi"]),
         }
 
-    # runtime per (arm,caller): mean of cell mean_runtime
-    rt = defaultdict(list)
-    for r in cells:
-        m = _f(r.get("mean_runtime_s"))
-        if m is not None:
-            rt[(r["arm"], r["caller"])].append(m)
-    runtime = {"%s|%s" % k: round(sum(v) / len(v), 1) for k, v in rt.items() if v}
+    # runtime DISTRIBUTIONS per (arm,caller) and per caller (all arms), from the
+    # raw per-cell runtime_s, for boxplots + a summary table.
+    rt_by = defaultdict(list)
+    rt_all = defaultdict(list)
+    for r in sweep:
+        s = _f(r.get("runtime_s"))
+        if s is None or r.get("status") != "ok":
+            continue
+        rt_by[(r["arm"], r["caller"])].append(s)
+        rt_all[r["caller"]].append(s)
+    runtime_box = {}
+    for (arm, caller), vals in rt_by.items():
+        b = S.boxstats(vals)
+        if b:
+            runtime_box["%s|%s" % (arm, caller)] = _round_box(b)
+    for caller, vals in rt_all.items():
+        b = S.boxstats(vals)
+        if b:
+            runtime_box["all|%s" % caller] = _round_box(b)
 
     return {
         "callers": callers, "arms": arms, "variants": variants,
         "depths": depths, "vafs": vafs,
         "cells": {"|".join(map(str, k)): v for k, v in cell_map.items()},
-        "fits": fit_map, "runtime": runtime,
+        "fits": fit_map, "runtime": runtime_box,
         "n_rows": len(sweep),
     }
 
@@ -150,7 +174,11 @@ All values are heteroplasmy %.</p>
 
 <h2>Runtime</h2>
 <div class="panel"><div id="runtime"></div></div>
-<p class="legend">Mean per-sample runtime per caller (selected arm). Relative on these inputs, not absolute.</p>
+<p class="legend">Per-cell wall-clock seconds per caller for the selected arm — box = IQR, line = median,
+diamond = mean, whiskers = 1.5×IQR, dots = outliers. The spread reflects depth/heteroplasmy variation
+across cells. Relative on these inputs, not absolute.</p>
+<div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
+<p class="legend">Runtime distribution per caller (selected arm). Seconds per cell.</p>
 
 <h2>Pipeline vs circular-aware input</h2>
 <p>Two input preparations are compared: <b>pipeline</b> re-normalises the reads with
@@ -190,10 +218,10 @@ function cellsOf(arm,variant,depth,caller){return D.cells[[arm,variant,depth,cal
 (function(){
   const pd=sel.depth, arm=D.arms[0], v=D.variants[0];
   const ranked=D.callers.map(c=>({c,lod:fitOf(arm,v,pd,c).lod95})).filter(x=>x.lod!=null).sort((a,b)=>a.lod-b.lod);
-  const rt=D.callers.map(c=>({c,t:D.runtime[arm+'|'+c]})).filter(x=>x.t!=null).sort((a,b)=>a.t-b.t);
+  const rt=D.callers.map(c=>({c,b:D.runtime['all|'+c]})).filter(x=>x.b!=null).sort((a,b)=>a.b.med-b.b.med);
   const cards=[['Callers',D.callers.length],['Deletions',D.variants.length],
     ['Most sensitive',ranked[0]?`${ranked[0].c} · ${pct(ranked[0].lod)}%`:'—'],
-    ['Fastest',rt[0]?`${rt[0].c} · ${rt[0].t}s`:'—']];
+    ['Fastest (median)',rt[0]?`${rt[0].c} · ${rt[0].b.med}s`:'—']];
   document.getElementById('cards').innerHTML=cards.map(([k,v])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 })();
 
@@ -265,14 +293,33 @@ function drawSummary(){
 }
 
 function drawRuntime(){
-  const items=D.callers.map(c=>({c,t:D.runtime[sel.arm+'|'+c]})).filter(x=>x.t!=null).sort((a,b)=>a.t-b.t);
-  const W=820,rh=28,L=120,R=60,T=6,H=T+items.length*rh+6;const mx=Math.max(1,...items.map(x=>x.t));
+  const items=D.callers.map(c=>({c,b:D.runtime[sel.arm+'|'+c]})).filter(x=>x.b!=null);
+  const el=document.getElementById('runtime'), tbl=document.getElementById('runtime-table');
+  if(!items.length){el.innerHTML='<span class="legend">no runtime data for this arm</span>';tbl.innerHTML='';return;}
+  const W=820,rh=34,L=120,R=70,T=10,B=26,H=T+B+items.length*rh,hb=9;
+  let mx=0; items.forEach(d=>{mx=Math.max(mx,d.b.whi,...(d.b.outliers||[]));}); mx=Math.max(1,mx);
+  const X=v=>L+(W-L-R)*(v/mx);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
-  items.forEach((d,i)=>{const y=T+i*rh,bw=(W-L-R)*(d.t/mx);
-    s+=`<text x="${L-8}" y="${y+rh/2+3}" text-anchor="end" fill="${col(d.c)}">${d.c}</text>`;
-    s+=`<rect x="${L}" y="${y+3}" width="${bw}" height="${rh-9}" rx="4" fill="${col(d.c)}"/>`;
-    s+=`<text x="${L+bw+6}" y="${y+rh/2+3}">${d.t}s</text>`;});
-  s+=`</svg>`;document.getElementById('runtime').innerHTML=items.length?s:'<span class="legend">no runtime data</span>';
+  for(let i=0;i<=4;i++){const gx=X(mx*i/4);s+=`<line class="gl" x1="${gx}" y1="${T}" x2="${gx}" y2="${H-B}"/>`;
+    s+=`<text x="${gx}" y="${H-9}" text-anchor="middle" fill="#9aa4b2">${(mx*i/4).toFixed(mx<10?1:0)}</text>`;}
+  s+=`<text x="${(L+W-R)/2}" y="${H-0}" text-anchor="middle" fill="#9aa4b2">seconds / cell</text>`;
+  items.forEach((d,i)=>{const b=d.b,y=T+i*rh+rh/2-2,c=col(d.c);
+    s+=`<text x="${L-8}" y="${y+3}" text-anchor="end" fill="${c}">${d.c}</text>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y}" x2="${X(b.whi)}" y2="${y}" stroke="${c}" stroke-width="1" opacity=".6"/>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y-5}" x2="${X(b.wlo)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<line x1="${X(b.whi)}" y1="${y-5}" x2="${X(b.whi)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<rect class="dot" x="${X(b.q1)}" y="${y-hb}" width="${Math.max(1,X(b.q3)-X(b.q1))}" height="${2*hb}" rx="2" fill="${c}" fill-opacity=".28" stroke="${c}" data-t="${encodeURIComponent(`<b>${d.c}</b> (n=${b.n})<br>median ${b.med}s · mean ${b.mean}s<br>IQR ${b.q1}–${b.q3}s · range ${b.min}–${b.max}s`)}"/>`;
+    s+=`<line x1="${X(b.med)}" y1="${y-hb}" x2="${X(b.med)}" y2="${y+hb}" stroke="${c}" stroke-width="2"/>`;
+    const mp=X(b.mean);s+=`<path d="M${mp},${y-5} L${mp+5},${y} L${mp},${y+5} L${mp-5},${y} Z" fill="#0f1117" stroke="${c}" stroke-width="1.5"/>`;
+    (b.outliers||[]).forEach(o=>{s+=`<circle cx="${X(o)}" cy="${y}" r="2.3" fill="${c}" fill-opacity=".7"/>`;});
+  });
+  s+=`</svg>`;el.innerHTML=s;
+  el.querySelectorAll('.dot').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
+  const order=items.slice().sort((a,b)=>a.b.med-b.b.med);
+  let h=`<thead><tr><th>caller</th><th class="num">n</th><th class="num">median</th><th class="num">mean</th><th class="num">p25</th><th class="num">p75</th><th class="num">min</th><th class="num">max</th></tr></thead><tbody>`;
+  order.forEach(d=>{const b=d.b,lbl=d.c=='mitohpc'?`<span class="tag ref">${d.c}</span>`:d.c;
+    h+=`<tr><td>${lbl}</td><td class="num">${b.n}</td><td class="num">${b.med}s</td><td class="num">${b.mean}s</td><td class="num">${b.q1}s</td><td class="num">${b.q3}s</td><td class="num">${b.min}s</td><td class="num">${b.max}s</td></tr>`;});
+  h+=`</tbody>`;tbl.innerHTML=h;
 }
 
 function drawArmCmp(){
