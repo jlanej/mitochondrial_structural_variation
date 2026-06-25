@@ -26,8 +26,11 @@ prefix="$out_abs/$SAMPLE"
 log "running MitoHPC callSV on $SAMPLE"
 # callSV.sh reads HP_MT/HP_MTLEN to pick the contig + its reference; pin to our
 # normalised rCRS chrM (16569). HP_PYTHON=python -> the mitosv env's pysam.
+# HP_SV_PLOT='' explicitly DISABLES the optional samplot visualization
+# (callSV.sh only plots when HP_SV_PLOT is non-empty) so the measured runtime is
+# pure SV calling — comparable to the other callers, never inflated by plotting.
 micromamba run -n mitosv bash -c "HP_SDIR=/opt/MitoHPC/scripts HP_RDIR=/opt/MitoHPC/RefSeq \
-    HP_PYTHON=python HP_MT=chrM HP_MTLEN=16569 \
+    HP_PYTHON=python HP_MT=chrM HP_MTLEN=16569 HP_SV_PLOT= \
     bash /opt/MitoHPC/scripts/callSV.sh '$SAMPLE' '$bam_abs' '$prefix'" \
     || log "callSV.sh returned non-zero"
 

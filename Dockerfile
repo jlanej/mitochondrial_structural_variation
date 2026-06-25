@@ -54,12 +54,11 @@ COPY vendor/MitoSAlt_1.1.1/ /opt/MitoSAlt/
 COPY docker/install/        /opt/install/
 COPY pipeline/              /opt/pipeline/
 
-# Pin upstream caller revisions for reproducibility.
+# Pin THIRD-PARTY caller revisions for reproducibility (we don't control these).
 ENV EKLIPSE_SHA=3606cb2edac983d2623ddc667b49206c3d01373c \
     SPLICEBREAK_SHA=7b4ee7aed77586e67dc9fa2710288317e133f7cf \
     MITOMUT_SHA=ba56a65a5fc5728b2807d1253f6233db56e1c391 \
-    MITOSEEK_SHA=624efc623832e3ca7f1095460ce4bc4e68bf8503 \
-    MITOHPC_SHA=6c28e36e5c95fa82e3af598ec759427e83e3c41e
+    MITOSEEK_SHA=624efc623832e3ca7f1095460ce4bc4e68bf8503
 
 # --- shared pipeline env + reference indexes (samtools/bwa/minimap2/pysam) ---
 RUN bash /opt/install/10_mitosv.sh
@@ -77,6 +76,13 @@ RUN bash /opt/install/40_mitoseek.sh
 RUN bash /opt/install/50_mitosalt.sh
 
 # --- MitoHPC reference SV caller (Python3 + pysam; runs in the mitosv env) ---
+# MitoHPC is OUR repo, so the image TRACKS its sv-calling branch rather than
+# pinning: CI resolves the latest sv-calling commit and passes it as MITOHPC_REF,
+# so changes to MitoHPC are reflected on the next build (and the exact commit is
+# recorded at /opt/MitoHPC/GIT_SHA). Placed here, just before its install step, so
+# a new ref only busts this layer — the expensive caller envs above stay cached.
+ARG MITOHPC_REF=sv-calling
+ENV MITOHPC_REF=${MITOHPC_REF}
 RUN bash /opt/install/60_mitohpc.sh
 
 # Splice-Break2 hardcodes /usr/bin/python and expects it to be Python 2.

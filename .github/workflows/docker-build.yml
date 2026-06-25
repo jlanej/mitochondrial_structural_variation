@@ -46,6 +46,18 @@ jobs:
         id: img
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
+      # MitoHPC is our own repo and the reference caller; resolve the current tip
+      # of its sv-calling branch so every build benchmarks the latest MitoHPC
+      # (the SHA changes -> the MITOHPC_REF build-arg changes -> only the MitoHPC
+      # image layer rebuilds). The exact commit is recorded at /opt/MitoHPC/GIT_SHA.
+      - name: Resolve latest MitoHPC sv-calling commit
+        id: mitohpc
+        run: |
+          REF="$(git ls-remote https://github.com/jlanej/MitoHPC sv-calling | cut -f1)"
+          [[ -n "$REF" ]] || { echo "could not resolve MitoHPC sv-calling"; exit 1; }
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "MitoHPC sv-calling -> $REF"
+
       - name: Build image (load locally for testing)
         uses: docker/build-push-action@v6
         with:
@@ -54,6 +66,8 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: mito-sv:ci
+          build-args: |
+            MITOHPC_REF=${{ steps.mitohpc.outputs.ref }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

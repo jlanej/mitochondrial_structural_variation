@@ -11,12 +11,19 @@
 ###############################################################################
 set -euxo pipefail
 
+# MITOHPC_REF tracks the sv-calling branch (CI passes the resolved commit SHA so
+# changes to our MitoHPC repo land on the next build); falls back to the branch
+# name for local builds. Record the resolved commit so the benchmarked version is
+# always discoverable at /opt/MitoHPC/GIT_SHA.
+MITOHPC_REF="${MITOHPC_REF:-sv-calling}"
 git clone https://github.com/jlanej/MitoHPC /opt/MitoHPC-src
-git -C /opt/MitoHPC-src checkout "${MITOHPC_SHA}"
+git -C /opt/MitoHPC-src checkout "${MITOHPC_REF}"
 # Keep only what the SV caller needs (scripts/ + RefSeq/) to stay lean.
 mkdir -p /opt/MitoHPC
 cp -r /opt/MitoHPC-src/scripts /opt/MitoHPC/scripts
 cp -r /opt/MitoHPC-src/RefSeq  /opt/MitoHPC/RefSeq
+git -C /opt/MitoHPC-src rev-parse HEAD > /opt/MitoHPC/GIT_SHA
+echo "MitoHPC checked out $(cat /opt/MitoHPC/GIT_SHA) (ref=${MITOHPC_REF})"
 rm -rf /opt/MitoHPC-src
 
 test -f /opt/MitoHPC/scripts/callSV.sh

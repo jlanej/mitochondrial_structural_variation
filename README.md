@@ -236,7 +236,12 @@ cells across 24 threads, so the scheduler isn't flooded (full grid ≈ 4200 cell
 All callers (including the MitoHPC reference) run in the **same image, env, and
 node**, each timed identically by `run_sample.sh` (`t0=$SECONDS … $((SECONDS-t0))`),
 so the runtimes are a fair head-to-head; the `.sif` is built once per submission
-and reused across array tasks (no per-run image pull).
+and reused across array tasks (no per-run image pull). MitoHPC's optional samplot
+visualization is explicitly disabled (`HP_SV_PLOT=`) so its runtime is pure SV
+calling. Because MitoHPC is our own repo, the image **tracks its `sv-calling`
+branch**: CI resolves the latest commit and passes it as the `MITOHPC_REF` build
+arg, so changes are benchmarked on the next build (the exact commit is recorded at
+`/opt/MitoHPC/GIT_SHA`). The third-party callers stay pinned for reproducibility.
 
 CI runs a **single-iteration gate** ([`test/lod_smoke.sh`](test/lod_smoke.sh)) —
 one tiny cell through both arms — to prove the machinery runs; the full sweep is
