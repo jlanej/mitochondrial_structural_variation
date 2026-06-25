@@ -49,6 +49,47 @@ micromamba run -n mitosalt bash -c "cd '$work' && MITOSALT_XMX='${MITOSALT_XMX:-
 finished=0
 grep -q ':Finished' "$work/log/${tag}.log" 2>/dev/null && finished=1
 
+# --- under-the-hood diagnostics --------------------------------------------
+# Surface where the read evidence was lost, EVERY run (not only failures), and
+# leave a machine-readable sidecar. split alignments ~0 => LAST found no split
+# reads; clusters < cluster_threshold => evidence too sparse to call; a non-empty
+# breakpoint/cluster but empty .tsv => delplot.R filtered/errored (see Rout).
+_cnt() { [[ -f "$1" ]] && { wc -l < "$1" | tr -d ' '; } || echo 0; }
+tabz="$work/tab/${tag}.tab.gz"
+n_split=$( [[ -f "$tabz" ]] && { zcat -f "$tabz" 2>/dev/null | grep -cv '^#' || true; } || echo 0 )
+n_bp=$(_cnt "$work/indel/${tag}.breakpoint")
+n_clu=$(_cnt "$work/indel/${tag}.cluster")
+n_call=$(_cnt "$work/indel/${tag}.tsv"); [[ "$n_call" -gt 0 ]] && n_call=$((n_call - 1))
+# Forensic signals for the two suspected drop points (see review):
+#  * paired-name fraction: build_hash needs query names ending /1 or /2 (col 7);
+#    if reformat addslash failed, this is ~0 and mates mis-bin -> no breakpoints.
+#  * low-score arms: each split arm must clear score_threshold(=80)/lastal -e80;
+#    a short arm of a breakpoint-spanning 150bp read can score below it and be
+#    dropped, so count how many alignment rows score < 80.
+named="?"; lowscore="?"
+if [[ -f "$tabz" ]]; then
+    tot="$(zcat -f "$tabz" 2>/dev/null | grep -cv '^#' || echo 0)"
+    sl="$(zcat -f "$tabz" 2>/dev/null | awk '$1!~/^#/ && $7~/\/[12]$/' | wc -l | tr -d ' ')"
+    ls="$(zcat -f "$tabz" 2>/dev/null | awk '$1!~/^#/ && $1<80' | wc -l | tr -d ' ')"
+    named="${sl}/${tot}"; lowscore="${ls}/${tot}"
+fi
+{
+    echo "----- MitoSAlt under-the-hood diagnostics ($tag) -----"
+    echo "native clean exit   : $mitosalt_ok      (0 => perl returned non-zero)"
+    echo "log reached :Finished: $finished"
+    echo "split alignments    : $n_split   (tab/${tag}.tab.gz; ~0 => LAST emitted no split reads)"
+    echo "  paired-name arms  : $named     (col7 ends /1 or /2; ~0 => pairing broken, mates mis-bin)"
+    echo "  arms score < 80   : $lowscore  (killed by score_threshold/lastal -e80)"
+    echo "breakpoints         : $n_bp      (indel/${tag}.breakpoint; split reads with both arms kept)"
+    echo "clusters            : $n_clu     (indel/${tag}.cluster; need >= cluster_threshold to call)"
+    echo "final calls         : $n_call    (indel/${tag}.tsv rows)"
+} >&2
+[[ -f "$work/log/${tag}.log" ]] && { echo "----- log/${tag}.log (tail 40) -----" >&2; tail -n 40 "$work/log/${tag}.log" >&2; }
+[[ -f "$work/delplot.Rout" ]] && { echo "----- delplot.Rout (tail 30) -----" >&2; tail -n 30 "$work/delplot.Rout" >&2; }
+printf 'caller\tnative_rc\tcompleted\tsplit_aln\tpaired_name_arms\tlowscore_arms\tbreakpoints\tclusters\tcalls\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    mitosalt "$mitosalt_ok" "$finished" "$n_split" "$named" "$lowscore" "$n_bp" "$n_clu" "$n_call" > "$out_abs/mitosalt.runstatus"
+# ---------------------------------------------------------------------------
+
 if [[ -f "$work/indel/${tag}.tsv" ]]; then
     cp "$work/indel/${tag}.tsv" "$out_abs/${tag}.mitosalt.tsv"
     log "calls -> ${tag}.mitosalt.tsv"; log "done"

@@ -232,6 +232,11 @@ pipeline/lib/__pycache__/
 !test/example_output/
 !test/example_output/**
 
+# Verbose per-caller diagnostics bundle: regenerated each smoke run and uploaded
+# as a CI artifact. The committed under-the-hood record is
+# test/example_output/UNDER_THE_HOOD.md.
+test/_diagnostics/
+
 # Pipeline working/output dirs and built containers
 /work/
 /out/

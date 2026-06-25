@@ -138,11 +138,17 @@ declare -A EXPECT=(
 )
 [[ -f "$OUT/$POS/status.tsv" ]] && { echo "status.tsv:"; cat "$OUT/$POS/status.tsv"; } \
     || err "no status.tsv for $POS (preprocess likely failed)"
+# Format a caller's runstatus sidecar (caller<tab>k=v ...) into "k=v k=v".
+runstat_kv() {
+    [[ -f "$1" ]] || { echo "(no sidecar)"; return; }
+    awk -F'\t' 'NR==1{for(i=1;i<=NF;i++)h[i]=$i} NR==2{s="";for(i=2;i<=NF;i++)s=s h[i]"="$i" "; print s}' "$1"
+}
 declare -A OP=()
 for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
     if [[ "$CALLERS" != "all" && ",$CALLERS," != *",$caller,"* ]]; then OP[$caller]=skip; continue; fi
     st="$(awk -F'\t' -v c="$caller" '$1==c{print $2}' "$OUT/$POS/status.tsv" 2>/dev/null)"
     out_ok=0; [[ -f "$OUT/$POS/${EXPECT[$caller]}" ]] && out_ok=1
+    rs="$OUT/$POS/$caller/$caller.runstatus"
     if [[ "$st" == "ok" && "$out_ok" == 1 ]]; then
         echo "  OK   $caller ran"; OP[$caller]=yes
     else
@@ -151,6 +157,9 @@ for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
         clog="$OUT/$POS/$caller/$caller.log"
         [[ -f "$clog" ]] && { echo "----- $caller log (tail) -----" >&2; tail -n 30 "$clog" >&2; }
     fi
+    # Surface the internal-pipeline signal so "ran" vs "ran but did no real work"
+    # is visible at a glance (the diagnostics artifact has the full logs).
+    [[ -f "$rs" ]] && echo "       under-the-hood: $(runstat_kv "$rs")"
 done
 
 ###############################################################################
@@ -247,6 +256,69 @@ detected_by() {  # sample caller -> yes/no (common deletion)
     [[ -f "$scen_md" ]] && cat "$scen_md"
 } > "$summary_md"
 echo "--- SMOKE_SUMMARY.md ---"; cat "$summary_md"
+
+###############################################################################
+# Under-the-hood completion record (committed, low-churn) + full verbose
+# diagnostics bundle (CI artifact). Lets us confirm each caller's INTERNAL
+# pipeline ran — not just that the wrapper exited 0 — and see where a caller
+# that "ran" produced no call.
+###############################################################################
+note "under-the-hood completion (positive sample) + diagnostics bundle"
+uth_md="$EXDIR/UNDER_THE_HOOD.md"
+{
+    echo "# Under-the-hood completion (positive control \`$POS\`)"
+    echo
+    echo "Confirms each caller's *internal* pipeline ran to completion — not just that"
+    echo 'the wrapper exited 0. Captured by `test/smoke_test.sh`. The full verbose logs'
+    echo 'for every sample x caller are uploaded by CI as the `caller-diagnostics` artifact.'
+    echo
+    echo "| caller | ran | clean exit | internal-pipeline signal |"
+    echo "|--------|:---:|:----------:|--------------------------|"
+    for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
+        rs="$OUT/$POS/$caller/$caller.runstatus"
+        clog="$OUT/$POS/$caller/$caller.log"
+        # "clean exit" = wrapper log has no fatal error markers (traceback /
+        # command-not-found / unhandled exception). Verifies the tool didn't
+        # error its way to a 0-exit.
+        nerr=0
+        if [[ -f "$clog" ]]; then
+            nerr="$(grep -ciE 'traceback \(most recent call last\)|command not found|no such file or directory|exception in thread|core dumped' "$clog" 2>/dev/null)" || nerr=0
+        fi
+        clean=$([[ "${nerr:-0}" -eq 0 ]] && echo yes || echo "no($nerr)")
+        if [[ -f "$rs" ]]; then sig="$(runstat_kv "$rs")"
+        else sig="output $([[ -f "$OUT/$POS/${EXPECT[$caller]:-_none_}" ]] && echo present || echo MISSING)"; fi
+        echo "| $caller | ${OP[$caller]:-?} | $clean | ${sig} |"
+    done
+    echo
+    echo "_Signal glossary — mitosalt:_ \`split_aln\` LAST split rows, \`paired_name_arms\`"
+    echo "arms whose query name ends /1|/2, \`lowscore_arms\` arms dropped by the score"
+    echo "filter, \`breakpoints\`/\`clusters\`/\`calls\` downstream survivors."
+    echo "_splicebreak2:_ \`junctions\` MapSplice junctions, \`del4977_junc\` junctions"
+    echo "spanning ~8470..13447, \`result_bytes\` (0 => inner script exited before its"
+    echo "header), \`calls\` deletion rows."
+} > "$uth_md"
+echo "--- UNDER_THE_HOOD.md ---"; cat "$uth_md"
+
+# Verbose bundle: every caller's full log + sidecar + small native logs/
+# intermediates (no BAM/FASTQ/bigwig). Gitignored; uploaded as a CI artifact.
+DIAG="$REPO/test/_diagnostics"; rm -rf "$DIAG"; mkdir -p "$DIAG"
+for s in "${SAMPLES[@]}"; do
+    sd="$OUT/$s"; [[ -d "$sd" ]] || continue
+    [[ -f "$sd/status.tsv" ]] && { mkdir -p "$DIAG/$s"; cp "$sd/status.tsv" "$DIAG/$s/" 2>/dev/null || true; }
+    for caller in mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek; do
+        cdir="$sd/$caller"; [[ -d "$cdir" ]] || continue
+        dest="$DIAG/$s/$caller"; mkdir -p "$dest"
+        while IFS= read -r f; do
+            rel="${f#"$cdir"/}"; mkdir -p "$dest/$(dirname "$rel")"; cp "$f" "$dest/$rel" 2>/dev/null || true
+        done < <(find "$cdir" -type f \( -name '*.log' -o -name '*.runstatus' -o -name '*.Rout' \
+                    -o -name '*.breakpoint' -o -name '*.cluster' -o -name '*junction*.txt' \
+                    -o -name '*_nohup.log' -o -name '*LargeMTDeletions*.txt' \) -size -3M 2>/dev/null)
+        [[ -z "$(ls -A "$dest" 2>/dev/null)" ]] && rmdir "$dest" 2>/dev/null || true
+    done
+    [[ -z "$(ls -A "$DIAG/$s" 2>/dev/null)" ]] && rmdir "$DIAG/$s" 2>/dev/null || true
+done
+( cd "$DIAG" && find . -type f | sort > _MANIFEST.txt ) 2>/dev/null || true
+echo "diagnostics bundle: $(find "$DIAG" -type f 2>/dev/null | wc -l | tr -d ' ') files -> test/_diagnostics"
 
 ###############################################################################
 # Interactive comparison report -> docs/index.html (CI commits it).

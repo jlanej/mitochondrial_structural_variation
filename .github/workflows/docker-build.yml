@@ -73,6 +73,19 @@ jobs:
       - name: LOD single-iteration gate
         run: bash test/lod_smoke.sh mito-sv:ci
 
+      # Verbose per-caller logs + native tool intermediates for every sample
+      # (written by the smoke test to test/_diagnostics). Uploaded even when the
+      # smoke test failed, so a caller that ran-but-did-no-work can be inspected
+      # under the hood. Retained 14 days.
+      - name: Upload caller diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: caller-diagnostics
+          path: test/_diagnostics
+          retention-days: 14
+          if-no-files-found: ignore
+
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
