@@ -65,7 +65,10 @@ endcheck.max<-mlength-20
 endcheck.min<-20
 random.shift<-550
 del.limit<-10000
-mat<-nucleotideSubstitutionMatrix(match = 1, mismatch = -3, baseOnly = TRUE)
+# nucleotideSubstitutionMatrix() moved from Biostrings to pwalign (defunct in
+# Biostrings >= 2.77.1). Call it from its new home so delplot.R does not abort
+# here before writing indel/<tag>.tsv. (Patched for the Dockerized pipeline.)
+mat<-pwalign::nucleotideSubstitutionMatrix(match = 1, mismatch = -3, baseOnly = TRUE)
 
 #FUNCTION
 set.radius<-function(dat=NULL,radius=NULL,radius.diff=NULL,decreasing=NULL){

@@ -23,12 +23,14 @@ micromamba create -y -n mitosalt \
     r-rcolorbrewer \
     bioconductor-biostrings \
     bioconductor-pwalign
-# pwalign: starting with Bioconductor 3.19, Biostrings::nucleotideSubstitutionMatrix()
-# (delplot.R line ~68) delegates to the split-out pwalign package. Without it
-# delplot.R ABORTS at runtime — after clustering, before writing indel/<tag>.tsv —
-# so MitoSAlt silently reports zero deletions on every sample (confirmed by a
-# local delplot.R repro of a del4977 cluster). The build-time check below now
-# exercises this exact call so a regression fails the build, not the run.
+# pwalign: nucleotideSubstitutionMatrix() (delplot.R line ~68) moved from
+# Biostrings to the split-out pwalign package and is DEFUNCT in Biostrings
+# >= 2.77.1 (calling the Biostrings name errors outright). delplot.R is patched
+# to call pwalign::nucleotideSubstitutionMatrix(); without this package (or the
+# patch) delplot.R aborts at runtime — after clustering, before writing
+# indel/<tag>.tsv — so MitoSAlt silently reports zero deletions on every sample
+# (confirmed by a local delplot.R repro of a del4977 cluster). The build-time
+# check below exercises the exact call so a regression fails the build, not the run.
 
 cd /opt/MitoSAlt
 mkdir -p genome bin bam bw tab indel log plot
@@ -111,6 +113,6 @@ CFG
 # delplot.R relies on actually runs (no runtime Biostrings network install, and
 # no missing-pwalign abort). nucleotideSubstitutionMatrix() is the operation
 # that silently broke MitoSAlt on every sample, so assert it here.
-micromamba run -n mitosalt Rscript -e 'suppressMessages({library(plotrix);library(RColorBrewer);library(Biostrings)}); m<-nucleotideSubstitutionMatrix(match=1,mismatch=-3,baseOnly=TRUE); stopifnot(is.matrix(m), m["A","A"]==1); cat("MitoSAlt R deps OK (nucleotideSubstitutionMatrix works)\n")'
+micromamba run -n mitosalt Rscript -e 'suppressMessages({library(plotrix);library(RColorBrewer);library(Biostrings);library(pwalign)}); m<-pwalign::nucleotideSubstitutionMatrix(match=1,mismatch=-3,baseOnly=TRUE); stopifnot(is.matrix(m), m["A","A"]==1); cat("MitoSAlt R deps OK (pwalign::nucleotideSubstitutionMatrix works)\n")'
 
 micromamba clean -a -y
