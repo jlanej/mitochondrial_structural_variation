@@ -1,106 +1,72 @@
 #!/usr/bin/env python3
 """Unit tests for the scenario comparison tool (test/check_scenarios.py).
 
-The tool is EVALUATION-ONLY: it classifies, per scenario, which callers detect
-each truth deletion and where a caller reports the common deletion on a
-non-carrier — but it never gates (always exits 0). These tests assert the
-classification (sensitivity misses / specificity observations) and that it does
-not fail the build.
-
-Run:  python3 test/test_check_scenarios.py   (or: pytest test/test_check_scenarios.py)
+The tool is EVALUATION-ONLY: it categorizes scenarios, scores each caller as a
+deletion detector (per-category + overall accuracy), and renders a markdown
+matrix — but it never gates (always exits 0). The detailed scoring logic is
+covered in test_sv_eval.py; here we assert the tool's integration + that it does
+not fail the build. Run: python3 test/test_check_scenarios.py
 """
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import check_scenarios as cs  # noqa: E402
 
-TRUTH = {
-    "sv_del4977_h30": [("del", 8469, 13447)],          # common deletion
-    "sv_del6000_h50": [("del", 5999, 10999)],          # non-repeat deletion
-    "sv_dup":         [("dup", 6000, 7000)],           # duplication (no common del)
-    "sv_origin":      [("delwrap", 16400, 200)],       # origin-crossing
-    "sv_wt":          [("none", None, None)],          # wild-type
-}
 
-
-def _calls(rows):
-    out = {}
-    for sample, caller, sv_type, bp5, bp3 in rows:
-        out.setdefault(sample, []).append(
-            {"caller": caller, "sv_type": sv_type, "bp5": bp5, "bp3": bp3})
-    return out
-
-
-def test_detection_recorded_and_nothing_gated():
-    calls = _calls([
-        ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
-        ("sv_del4977_h30", "mitomut", "deletion", 8482, 13446),
-        ("sv_del6000_h50", "eklipse", "deletion", 5999, 10999),
-    ])
-    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
-    # del4977_h30 detected by two callers -> a "yes" row listing both
-    assert any(r[0] == "sv_del4977_h30" and r[2] == "yes"
-               and "eklipse" in r[3] and "mitomut" in r[3] for r in rows), rows
-    # origin not detected -> recorded as a sensitivity observation (not a gate)
-    assert any("sv_origin" in m for m in sens_miss)
-    # no false-positive common-deletion calls
-    assert spec_obs == [], spec_obs
-
-
-def test_wildtype_common_call_is_observation_only():
-    calls = _calls([
-        ("sv_del4977_h30", "eklipse", "deletion", 8469, 13447),
-        ("sv_wt", "eklipse", "deletion", 8470, 13447),       # FP common del on WT
-    ])
-    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert any("sv_wt" in m and "eklipse" in m for m in spec_obs), spec_obs
-
-
-def test_duplication_common_call_is_observation_only():
-    calls = _calls([
-        ("sv_dup", "mitomut", "deletion", 8469, 13447),      # FP common del on dup
-    ])
-    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert any("sv_dup" in m for m in spec_obs), spec_obs
-
-
-def test_non_common_deletion_is_not_a_specificity_observation():
-    # del6000 carries a (non-common) deletion; detecting it must NOT be flagged
-    # as a common-deletion false positive.
-    calls = _calls([("sv_del6000_h50", "eklipse", "deletion", 5999, 10999)])
-    rows, sens_miss, spec_obs = cs.evaluate(TRUTH, calls, list(TRUTH))
-    assert spec_obs == [], spec_obs
-
-
-def test_cram_alias_inherits_truth():
-    truth = {"sv_del4977_h30": [("del", 8469, 13447)]}
-    calls = _calls([("sv_del4977_h30_cram", "mitomut", "deletion", 8482, 13446)])
-    rows, sens_miss, spec_obs = cs.evaluate(truth, calls, ["sv_del4977_h30_cram"])
-    assert any(r[0] == "sv_del4977_h30_cram" and r[2] == "yes" for r in rows), rows
-
-
-def test_main_always_exits_zero(tmp_path=None):
-    import tempfile
-    d = tempfile.mkdtemp()
+def _write(d, calls_rows, truth_rows):
     calls = os.path.join(d, "calls.tsv")
     truth = os.path.join(d, "truth.tsv")
     out = os.path.join(d, "m.md")
     with open(calls, "w") as fh:
         fh.write("sample\tcaller\tsv_type\tbp5\tbp3\tsvlen\tsupport\thet\tcommon_deletion\textra\n")
-        # a wild-type false positive — would be a "gate" failure if we gated, but
-        # this tool only reports, so it must still exit 0.
-        fh.write("sv_wt\teklipse\tdeletion\t8470\t13447\t4977\t5\t0.01\t1\tx\n")
+        for r in calls_rows:
+            fh.write("\t".join(map(str, r)) + "\n")
     with open(truth, "w") as fh:
-        fh.write("#sample\tkind\tbp5\tbp3\tsvlen\thet\tdepth\n")
-        fh.write("sv_wt\tnone\t.\t.\t.\t0\t300\n")
+        fh.write("#sample\tkind\tbp5\tbp3\tsvlen\thet\tdepth\texpect\n")
+        for r in truth_rows:
+            fh.write("\t".join(map(str, r)) + "\n")
+    return calls, truth, out
+
+
+def test_load_truth_reads_expect():
+    d = tempfile.mkdtemp()
+    _, truth, _ = _write(d, [], [("sv_del4977_h30", "del", 8469, 13447, 4977, 0.3, 300, "pass")])
+    t = cs.load_truth(truth)
+    assert t["sv_del4977_h30"][0] == ("del", 8469, 13447, "pass")
+
+
+def test_main_renders_categorized_matrix_and_exits_zero():
+    d = tempfile.mkdtemp()
+    calls, truth, out = _write(
+        d,
+        # a wild-type FP (would gate if we gated — but this tool only reports)
+        [("sv_wt", "eklipse", "deletion", 8470, 13447, 4977, 5, 0.01, 1, "x"),
+         ("sv_del4977_h30", "mitohpc", "deletion", 8482, 13446, 4977, 99, 0.30, 1, "")],
+        [("sv_del4977_h30", "del", 8469, 13447, 4977, 0.30, 300, "pass"),
+         ("sv_dup", "dup", 6000, 7000, 0, 0.50, 300, "no_pass"),
+         ("sv_inv_small", "inv", 6000, 6500, 501, 0.50, 300, "no_record"),
+         ("sv_wt", "none", ".", ".", ".", 0, 300, "no_pass")])
+    rc = cs.main(["--calls", calls, "--truth", truth, "--out-md", out,
+                  "--samples", "sv_del4977_h30 sv_dup sv_inv_small sv_wt", "--no-real"])
+    assert rc == 0
+    md = open(out).read()
+    assert "Accuracy (all scored scenarios)" in md
+    assert "### Deletions" in md and "### Duplications" in md and "### Inversions" in md
+    # eklipse made a common-del FP on wild-type -> reported (not gated)
+    assert "FP" in md
+
+
+def test_always_exits_zero_even_with_only_a_false_positive():
+    d = tempfile.mkdtemp()
+    calls, truth, out = _write(
+        d, [("sv_wt", "eklipse", "deletion", 8470, 13447, 4977, 5, 0.01, 1, "x")],
+        [("sv_wt", "none", ".", ".", ".", 0, 300, "no_pass")])
     rc = cs.main(["--calls", calls, "--truth", truth, "--out-md", out,
                   "--samples", "sv_wt", "--no-real"])
-    assert rc == 0, rc
-    assert os.path.isfile(out)
-    import shutil
-    shutil.rmtree(d, ignore_errors=True)
+    assert rc == 0 and os.path.isfile(out)
 
 
 def _main():

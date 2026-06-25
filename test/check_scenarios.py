@@ -28,15 +28,16 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "pipeline", "lib"))
 import parsers  # noqa: E402
+import sv_eval  # noqa: E402
 
 GEN_TOL = 250   # generic per-breakpoint match tolerance (bp), cross-caller
 
 # Real-data expectations (not in the mock truth.tsv); committed real BAMs.
 REAL_TRUTH = {
-    "spike_del4977_h20": [("del", 8469, 13447)],   # del4977 spiked @~20%
-    "NA12718":           [("none", None, None)],    # healthy 1000G
-    "NA12748":           [("none", None, None)],
-    "NA12775":           [("none", None, None)],
+    "spike_del4977_h20": [("del", 8469, 13447, "pass")],   # del4977 spiked @~20%
+    "NA12718":           [("none", None, None, "no_pass")],  # healthy 1000G
+    "NA12748":           [("none", None, None, "no_pass")],
+    "NA12775":           [("none", None, None, "no_pass")],
 }
 
 
@@ -55,7 +56,8 @@ def load_truth(path):
                 if line.startswith("#") or not line.strip():
                     continue
                 f = line.split()
-                truth.setdefault(f[0], []).append((f[1], _num(f[2]), _num(f[3])))
+                expect = f[7] if len(f) > 7 else ""
+                truth.setdefault(f[0], []).append((f[1], _num(f[2]), _num(f[3]), expect))
     return truth
 
 
@@ -71,117 +73,63 @@ def load_calls(path):
     return calls
 
 
-def _match(c5, c3, e5, e3, tol=GEN_TOL):
-    if None in (c5, c3, e5, e3):
-        return False
-    return abs(c5 - e5) <= tol and abs(c3 - e3) <= tol
+def _pct(v):
+    return "—" if v is None else "%d%%" % round(100 * v)
 
 
-def detectors(calls, sample, e5, e3, common):
-    """Callers whose deletion/duplication call matches the expected event."""
-    out = set()
-    for c in calls.get(sample, []):
-        if c["sv_type"] not in ("deletion", "duplication"):
-            continue
-        if common:
-            if parsers.is_common_deletion(c["bp5"], c["bp3"]):
-                out.add(c["caller"])
-        elif _match(c["bp5"], c["bp3"], e5, e3):
-            out.add(c["caller"])
-    return out
-
-
-def common_callers(calls, sample):
-    return {c["caller"] for c in calls.get(sample, [])
-            if parsers.is_common_deletion(c["bp5"], c["bp3"])}
-
-
-def base_sample(s):
-    """Map a CRAM round-trip sample back to its BAM truth (sv_x_cram -> sv_x)."""
-    return s[:-5] if s.endswith("_cram") else s
-
-
-def evaluate(truth, calls, run_samples=None):
-    """Return (rows, sensitivity_misses, specificity_observations).
-
-    All three are INFORMATIONAL — nothing here gates the build. If run_samples is
-    given, score exactly those samples (so a 0-call wild-type sample, absent from
-    cohort_sv_calls.tsv, is still scored and samples we never ran are not).
-    """
-    rows, sens_miss, spec_obs = [], [], []
-    if run_samples:
-        order = list(run_samples)
-    else:
-        order = list(truth.keys())
-        for s in calls:
-            if s not in order and base_sample(s) in truth:
-                order.append(s)
-    seen = []
-    for s in order:
-        if s and s not in seen:
-            seen.append(s)
-
-    for sample in seen:
-        events = truth.get(base_sample(sample), truth.get(sample, []))
-        carries_common = any(k in ("del", "delwrap")
-                             and parsers.is_common_deletion(b5, b3)
-                             for (k, b5, b3) in events)
-
-        if not events or all(e[0] == "none" for e in events):
-            rows.append((sample, "wild-type (no SV)", "-",
-                         "n/a (specificity sample)"))
-        for (kind, e5, e3) in events:
-            if kind in ("del", "delwrap"):
-                is_common = parsers.is_common_deletion(e5, e3)
-                det = detectors(calls, sample, e5, e3, common=is_common)
-                label = "del %s-%s%s" % (e5, e3, " [COMMON]" if is_common else "")
-                rows.append((sample, label, "yes" if det else "no",
-                             ", ".join(sorted(det)) if det else "(none)"))
-                if not det:
-                    sens_miss.append("%s del %s-%s detected by no caller" % (sample, e5, e3))
-            elif kind == "dup":
-                det = detectors(calls, sample, e5, e3, common=False)
-                rows.append((sample, "dup %s-%s" % (e5, e3),
-                             "yes" if det else "no",
-                             ", ".join(sorted(det)) if det else "(none)"))
-
-        # Observation only: a caller reporting the common deletion on a sample
-        # that does not carry it (false-positive behaviour, recorded not gated).
-        if not carries_common:
-            fp = common_callers(calls, sample)
-            if fp:
-                spec_obs.append("%s does not carry the common deletion, "
-                                "but it was reported by %s" % (sample, ", ".join(sorted(fp))))
-    return rows, sens_miss, spec_obs
-
-
-def write_matrix(rows, sens_miss, spec_obs, path):
+def write_matrix(trials, metrics, callers, path):
+    """Per-category scenario x caller matrix + per-caller accuracy table.
+    EVALUATION ONLY — nothing here gates the build."""
+    cats = [c for c in sv_eval.CATEGORY_ORDER
+            if any(t["category"] == c for t in trials)]
     with open(path, "w") as fh:
         fh.write("## Caller comparison across MitoHPC scenarios\n\n")
-        fh.write("Evaluation only — a record of how each third-party caller behaves "
-                 "on the diverse test constructs (we do not control their source, "
-                 "so nothing here gates the build). **detected** = at least one "
-                 "caller matched the truth deletion (common deletion within "
-                 "+/-%d bp; others within +/-%d bp).\n\n"
+        fh.write("Evaluation only — how each third-party caller behaves on the diverse "
+                 "MitoHPC test constructs (we do not control their source, so nothing "
+                 "here gates the build). A **deletion-like call** = a record typed "
+                 "deletion/duplication with a span matching the truth event "
+                 "(common deletion within +/-%d bp; others within +/-%d bp). "
+                 "Forward-looking / ambiguous rows (origin-crossing, dup-del, sub-size) "
+                 "are shown but not scored.\n\n"
                  % (parsers.COMMON_DEL_TOL, GEN_TOL))
-        fh.write("| sample | truth event | detected | callers |\n")
-        fh.write("|--------|-------------|:--------:|---------|\n")
-        for (s, ev, det, who) in rows:
-            fh.write("| %s | %s | %s | %s |\n" % (s, ev, det, who))
+
+        # Overall accuracy table.
+        fh.write("### Accuracy (all scored scenarios)\n\n")
+        fh.write("| caller | sensitivity | specificity | precision | F1 | bal.acc | MCC | FP |\n")
+        fh.write("|--------|:-----------:|:-----------:|:---------:|:--:|:-------:|:---:|:--:|\n")
+        for c in sorted(callers, key=lambda c: -(metrics[c]["all"].get("balanced_acc") or -1)):
+            m = metrics[c]["all"]
+            f1 = "—" if m["f1"] is None else "%.2f" % m["f1"]
+            mcc = "—" if m["mcc"] is None else "%.2f" % m["mcc"]
+            fh.write("| %s | %s (%d/%d) | %s (%d/%d) | %s | %s | %s | %s | %d |\n" % (
+                c, _pct(m["sensitivity"]), m["tp"], m["n_pos"],
+                _pct(m["specificity"]), m["tn"], m["n_neg"],
+                _pct(m["precision"]), f1, _pct(m["balanced_acc"]), mcc, m["fp"]))
         fh.write("\n")
-        if sens_miss:
-            fh.write("**Sensitivity — truth events no caller detected (observation):**\n\n")
-            for m in sens_miss:
-                fh.write("- %s\n" % m)
+
+        # Per-category matrices.
+        for cat in cats:
+            crows = [t for t in trials if t["category"] == cat]
+            if not crows:
+                continue
+            label = sv_eval.CATEGORY_LABEL.get(cat, cat)
+            note = " *(evaluation-only / forward-looking)*" if cat in sv_eval.EVAL_ONLY_CATS else ""
+            fh.write("### %s%s\n\n" % (label, note))
+            fh.write("| sample | truth event | %s |\n" % " | ".join(callers))
+            fh.write("|--------|-------------|%s\n" % ("--|" * len(callers)))
+            for t in crows:
+                cells = []
+                for c in callers:
+                    if t["klass"] == "positive":
+                        cells.append("detected" if t["detected"].get(c) else "·")
+                    elif t["klass"] == "negative":
+                        f = t["fp"].get(c)
+                        cells.append(("FP*" if f.get("common") else "FP") if f else "·")
+                    else:
+                        called = t["detected"].get(c) or t["fp"].get(c)
+                        cells.append(t["reason"] if called else "·")
+                fh.write("| %s | %s | %s |\n" % (t["sample"], t["label"], " | ".join(cells)))
             fh.write("\n")
-        if spec_obs:
-            fh.write("**Specificity — common-deletion calls on non-carriers (observation):**\n\n")
-            for m in spec_obs:
-                fh.write("- %s\n" % m)
-            fh.write("\n")
-        if not sens_miss and not spec_obs:
-            fh.write("_Every truth deletion was detected by >=1 caller and no "
-                     "common-deletion false positives were observed._\n\n")
 
 
 def main(argv=None):
@@ -197,21 +145,29 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     truth = load_truth(args.truth)
-    if not args.no_real:
-        truth.update(REAL_TRUTH)
+    real = {} if args.no_real else REAL_TRUTH
     calls = load_calls(args.calls)
-    run_samples = [s for s in args.samples.replace(",", " ").split() if s] or None
+    run_samples = [s for s in args.samples.replace(",", " ").split() if s]
+    if not run_samples:
+        run_samples = list(truth.keys()) + [s for s in real if s not in truth]
+        for s in calls:
+            base = s[:-5] if s.endswith("_cram") else s
+            if s not in run_samples and base in truth:
+                run_samples.append(s)
+    callers = list(parsers.CALLERS)
+    cbs = {s: list(cl) for s, cl in calls.items()}
 
-    rows, sens_miss, spec_obs = evaluate(truth, calls, run_samples)
-    write_matrix(rows, sens_miss, spec_obs, args.out_md)
+    trials = sv_eval.build_trials(truth, run_samples, cbs, real)
+    metrics = sv_eval.metrics_by_category(trials, callers)
+    write_matrix(trials, metrics, callers, args.out_md)
 
     sys.stderr.write("\n=== caller comparison (evaluation only, not gated) ===\n")
-    for (s, ev, det, who) in rows:
-        sys.stderr.write("  %-22s %-30s detected=%-3s  %s\n" % (s, ev, det, who))
-    for m in sens_miss:
-        sys.stderr.write("  note (sensitivity): %s\n" % m)
-    for m in spec_obs:
-        sys.stderr.write("  note (specificity): %s\n" % m)
+    for c in callers:
+        m = metrics[c]["all"]
+        sys.stderr.write("  %-13s sens=%s (%d/%d)  spec=%s (%d/%d)  FP=%d  MCC=%s\n" % (
+            c, _pct(m["sensitivity"]), m["tp"], m["n_pos"],
+            _pct(m["specificity"]), m["tn"], m["n_neg"], m["fp"],
+            "—" if m["mcc"] is None else "%.2f" % m["mcc"]))
     return 0
 
 

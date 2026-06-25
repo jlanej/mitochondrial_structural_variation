@@ -33,20 +33,44 @@ set -uo pipefail
 IMAGE="${1:-mito-sv:ci}"
 CALLERS="${2:-all}"
 SCOPE="${3:-${MITO_SV_SMOKE_SCOPE:-full}}"
+# SUITE = which mock BAMs the scenario cohort runs. "all" = the full MitoHPC SV
+# suite (deletions + duplications + inversions + complex + origin); "del" =
+# deletions + controls only (skips the forward-looking dup/inv/complex BAMs) — an
+# easy lever to shorten CI if the full suite runs too long. Flip via the 4th arg
+# or MITO_SV_SUITE.
+SUITE="${4:-${MITO_SV_SUITE:-all}}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT" 2>/dev/null || sudo -n rm -rf "$OUT" 2>/dev/null || true' EXIT
 
 POS=sv_del4977_h30          # canonical positive control (common deletion @30%)
 WT=sv_wt                    # wild-type negative
+TRUTH="$REPO/test/data/truth.tsv"
 fail=0; warns=0
 note() { printf '\n=== %s ===\n' "$*"; }
 err()  { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; warns=$((warns+1)); }
 
+# Mock BAM samples for the selected suite (del = only samples carrying a
+# deletion / wild-type event; all = every committed mock BAM).
+select_bams() {
+    local b s
+    for b in "$REPO"/test/data/bams/*.bam; do
+        s="$(basename "$b" .bam)"
+        if [[ "$SUITE" == del ]]; then
+            awk -v s="$s" '$1==s && ($2=="del"||$2=="delwrap"||$2=="none"){f=1}
+                           END{exit !f}' "$TRUTH" && echo "$s"
+        else
+            echo "$s"
+        fi
+    done
+}
+mapfile -t MOCK_SAMPLES < <(select_bams)
+
 echo "image:   $IMAGE"
 echo "callers: $CALLERS"
 echo "scope:   $SCOPE"
+echo "suite:   $SUITE (${#MOCK_SAMPLES[@]} mock BAMs)"
 echo "out:     $OUT"
 
 ###############################################################################
@@ -57,6 +81,7 @@ docker run --rm \
     -v "$REPO/test/data:/data:ro" \
     -v "$OUT:/out" \
     -e CALLERS="$CALLERS" -e SCOPE="$SCOPE" -e POS="$POS" \
+    -e SUITE_BAMS="${MOCK_SAMPLES[*]}" \
     --entrypoint bash "$IMAGE" -lc '
 set -e
 trap "chmod -R a+rwX /out 2>/dev/null || true" EXIT
@@ -72,9 +97,9 @@ if [ "$SCOPE" = quick ]; then
     run_one /data/bams/'"$POS"'.bam "$POS"
     run_one /data/bams/sv_wt.bam   sv_wt
 else
-    # All 10 mock scenario BAMs.
-    for bam in /data/bams/*.bam; do
-        run_one "$bam" "$(basename "$bam" .bam)"
+    # Mock scenario BAMs selected for the suite (deletion-only or full).
+    for s in $SUITE_BAMS; do
+        run_one /data/bams/"$s".bam "$s"
     done
 fi
 
@@ -87,10 +112,12 @@ $SAM index /out/"$POS".cram
 run_one /out/"$POS".cram "${POS}_cram"
 
 if [ "$SCOPE" != quick ]; then
-    # Real 1000G data: a del4977 spike-in (sensitivity) + a healthy sample
+    # Real 1000G data: a del4977 spike-in (sensitivity) + healthy samples
     # (specificity) — mirrors MitoHPC check_real.
     run_one /data/real/spike_del4977_h20.chrM.bam spike_del4977_h20
     run_one /data/real/NA12718.chrM.bam           NA12718
+    run_one /data/real/NA12748.chrM.bam           NA12748
+    run_one /data/real/NA12775.chrM.bam           NA12775
 
     # Degenerate inputs (robustness): must fail cleanly, never hang/traceback.
     : > /out/_degen.txt
@@ -119,9 +146,8 @@ micromamba run -n mitosv python /opt/pipeline/postprocess.py --root /out
 if [[ "$SCOPE" == quick ]]; then
     SAMPLES=("$POS" "$WT" "${POS}_cram")
 else
-    SAMPLES=()
-    for b in "$REPO"/test/data/bams/*.bam; do SAMPLES+=("$(basename "$b" .bam)"); done
-    SAMPLES+=("${POS}_cram" "spike_del4977_h20" "NA12718")
+    SAMPLES=("${MOCK_SAMPLES[@]}" "${POS}_cram"
+             "spike_del4977_h20" "NA12718" "NA12748" "NA12775")
 fi
 
 ###############################################################################
@@ -334,7 +360,8 @@ note "generating docs/index.html (interactive caller comparison)"
 if [[ -f "$cohort" && -f "$OUT/cohort_runtime.tsv" ]]; then
     python3 "$REPO/pipeline/make_report.py" \
         --calls "$cohort" --runtime "$OUT/cohort_runtime.tsv" \
-        --truth "$REPO/test/data/truth.tsv" --samples "${SAMPLES[*]}" \
+        --truth "$REPO/test/data/truth.tsv" --scenarios "$REPO/test/data/scenarios.json" \
+        --samples "${SAMPLES[*]}" \
         --out "$REPO/docs/index.html" --scope "$SCOPE" \
         --image "$IMAGE" --generated "${MITO_SV_GENERATED:-$(date -u +%Y-%m-%d)}" \
         && echo "wrote docs/index.html" || warn "report generation failed"

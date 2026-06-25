@@ -26,6 +26,9 @@ jobs:
       - name: Parser unit tests
         run: python3 test/test_parsers.py
 
+      - name: SV-evaluation kernel unit tests
+        run: python3 test/test_sv_eval.py
+
       - name: Scenario-evaluator unit tests
         run: python3 test/test_check_scenarios.py
 
@@ -43,10 +46,11 @@ jobs:
       - name: Python syntax (compile all)
         run: |
           python3 -m py_compile pipeline/postprocess.py pipeline/make_report.py \
-            pipeline/lib/parsers.py pipeline/lod/lod_stats.py pipeline/lod/analyze_lod.py \
+            pipeline/lib/parsers.py pipeline/lib/sv_eval.py \
+            pipeline/lod/lod_stats.py pipeline/lod/analyze_lod.py \
             pipeline/lod/gen_cell.py pipeline/lod/score_cell.py pipeline/lod/make_lod_report.py \
             test/test_parsers.py test/check_scenarios.py test/test_check_scenarios.py \
-            test/test_lod_stats.py
+            test/test_sv_eval.py test/test_lod_stats.py
 
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck

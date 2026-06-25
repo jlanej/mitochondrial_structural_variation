@@ -22,13 +22,16 @@ from statistics import median
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import parsers  # noqa: E402
+import sv_eval  # noqa: E402
 
 GEN_TOL = 250
+# Real-data expectations (not in the mock truth.tsv); committed real BAMs.
+# 4-tuples (kind, bp5, bp3, expect) so they flow through sv_eval like mock truth.
 REAL_TRUTH = {
-    "spike_del4977_h20": [("del", 8469, 13447)],
-    "NA12718": [("none", None, None)],
-    "NA12748": [("none", None, None)],
-    "NA12775": [("none", None, None)],
+    "spike_del4977_h20": [("del", 8469, 13447, "pass")],   # del4977 spiked @~20%
+    "NA12718": [("none", None, None, "no_pass")],            # healthy 1000G
+    "NA12748": [("none", None, None, "no_pass")],
+    "NA12775": [("none", None, None, "no_pass")],
 }
 
 
@@ -47,6 +50,8 @@ def _f(x):
 
 
 def load_truth(path):
+    """sample -> [(kind, bp5, bp3, expect)] from the MitoHPC truth.tsv
+    (#sample kind bp5 bp3 svlen het depth expect)."""
     truth = {}
     if path and os.path.isfile(path):
         with open(path) as fh:
@@ -54,9 +59,21 @@ def load_truth(path):
                 if line.startswith("#") or not line.strip():
                     continue
                 f = line.split()
-                truth.setdefault(f[0], []).append((f[1], _num(f[2]), _num(f[3])))
+                expect = f[7] if len(f) > 7 else ""
+                truth.setdefault(f[0], []).append((f[1], _num(f[2]), _num(f[3]), expect))
     truth.update(REAL_TRUTH)
     return truth
+
+
+def load_scenarios(path):
+    """scenarios.json -> (categories[list], descriptions{sample:popup})."""
+    cats, desc = [], {}
+    if path and os.path.isfile(path):
+        with open(path) as fh:
+            d = json.load(fh)
+        cats = d.get("categories", [])
+        desc = d.get("descriptions", {})
+    return cats, desc
 
 
 def load_calls(path):
@@ -123,44 +140,27 @@ def _match(c5, c3, e5, e3, tol=GEN_TOL):
     return abs(c5 - e5) <= tol and abs(c3 - e3) <= tol
 
 
-def build(calls, runtime, truth, samples):
+def build(calls, runtime, truth, samples, categories=None, descriptions=None):
     callers = list(parsers.CALLERS)
     calls_by_sample = {}
     for c in calls:
         calls_by_sample.setdefault(c["sample"], []).append(c)
 
-    # ---- scenario x caller detection matrix ----
+    # ---- categorized scenario x caller trials + accuracy metrics (sv_eval) ----
+    trials = sv_eval.build_trials(truth, samples, calls_by_sample, REAL_TRUTH)
+    metrics = sv_eval.metrics_by_category(trials, callers)
+    # matrix rows for the report (one per trial), with category + popup
+    descriptions = descriptions or {}
     matrix = []
-    for sample in samples:
-        events = truth.get(base_sample(sample), truth.get(sample, []))
-        carries_common = any(k in ("del", "delwrap")
-                             and parsers.is_common_deletion(b5, b3)
-                             for (k, b5, b3) in events)
-        scalls = calls_by_sample.get(sample, [])
-        common_fp_here = sorted({c["caller"] for c in scalls
-                                 if parsers.is_common_deletion(c["bp5"], c["bp3"])}) \
-            if not carries_common else []
-        if not events or all(e[0] == "none" for e in events):
-            matrix.append({"sample": sample, "label": "wild-type (no SV)",
-                           "kind": "none", "common": False,
-                           "detected": {}, "fp": common_fp_here})
-        for (kind, e5, e3) in events:
-            if kind not in ("del", "delwrap", "dup"):
-                continue
-            is_common = kind != "dup" and parsers.is_common_deletion(e5, e3)
-            det = {}
-            for c in scalls:
-                if c["sv_type"] not in ("deletion", "duplication"):
-                    continue
-                hit = (parsers.is_common_deletion(c["bp5"], c["bp3"]) if is_common
-                       else _match(c["bp5"], c["bp3"], e5, e3))
-                if hit:
-                    det[c["caller"]] = True
-            label = "%s %s-%s%s" % ("dup" if kind == "dup" else "del",
-                                    e5, e3, " · COMMON" if is_common else "")
-            matrix.append({"sample": sample, "label": label, "kind": kind,
-                           "common": is_common, "detected": det,
-                           "fp": common_fp_here if kind != "dup" else []})
+    for t in trials:
+        matrix.append({
+            "sample": t["sample"], "category": t["category"], "kind": t["kind"],
+            "klass": t["klass"], "reason": t.get("reason", ""),
+            "label": t["label"], "common": t["is_common"], "eval_only": t["eval_only"],
+            "detected": t["detected"],
+            "fp": {c: v for c, v in t["fp"].items()},
+            "popup": descriptions.get(t["sample"], ""),
+        })
 
     # ---- runtime per caller (ok runs only) ----
     rt_by_caller = {c: [] for c in callers}
@@ -186,31 +186,29 @@ def build(calls, runtime, truth, samples):
             "per_sample": rt_per_sample.get(c, {}),
         }
 
-    # ---- detection summary per caller (from the matrix, deletion events) ----
-    det_counts = {c: 0 for c in callers}
-    n_truth_dels = 0
-    for m in matrix:
-        if m["kind"] in ("del", "delwrap"):
-            n_truth_dels += 1
-            for c in m["detected"]:
-                det_counts[c] = det_counts.get(c, 0) + 1
+    # ---- per-caller "ran" flag (kept for the calls/scatter sections) ----
     det_summary = {}
     for c in callers:
         n_calls = sum(1 for x in calls if x["caller"] == c)
-        fp = sorted({m["sample"] for m in matrix if c in (m.get("fp") or [])})
         det_summary[c] = {
-            "n_truth_dels": n_truth_dels,
-            "n_detected": det_counts.get(c, 0),
-            "sensitivity": round(100.0 * det_counts.get(c, 0) / n_truth_dels) if n_truth_dels else 0,
             "n_calls": n_calls,
-            "common_fp_samples": fp,
             "ran": runtime_summary[c]["n"] > 0 or n_calls > 0,
         }
+
+    # categories present, ordered (Deletions first); report appends an "All" tab.
+    cats_present = [cat for cat in sv_eval.CATEGORY_ORDER
+                    if any(t["category"] == cat for t in trials)]
+    cat_meta = {c["key"]: c for c in (categories or [])}
+    cat_list = [{"key": k, "label": sv_eval.CATEGORY_LABEL.get(k, k),
+                 "blurb": cat_meta.get(k, {}).get("blurb", ""),
+                 "eval_only": k in sv_eval.EVAL_ONLY_CATS} for k in cats_present]
 
     return {
         "callers": callers,
         "samples": samples,
         "matrix": matrix,
+        "categories": cat_list,
+        "metrics": metrics,
         "runtime": runtime_summary,
         "detection": det_summary,
         "calls": [{k: c.get(k) for k in
@@ -271,6 +269,14 @@ border-radius:8px;padding:6px 9px;font-size:12px;color:#fff;opacity:0;transition
 .foot{color:var(--mut);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
 .scroll{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:10px}
 .muted{color:var(--mut)}
+.cell-amb{color:var(--mut);font-style:italic;font-weight:400}
+.eval-banner{background:rgba(230,160,8,.10);border:1px solid #6b5410;color:#e3a008;
+border-radius:8px;padding:6px 10px;font-size:12px;margin:0 0 8px}
+tr.eval td{background:rgba(255,255,255,.02)}
+.pill{display:inline-block;padding:0 6px;border-radius:999px;font-size:10px;border:1px solid var(--line);color:var(--mut);margin-left:6px}
+.pop{cursor:help;border-bottom:1px dotted var(--mut)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+button.f.tab{font-weight:600}
 </style></head><body>
 <div class="wrap">
   <h1>Mitochondrial SV caller comparison</h1>
@@ -283,20 +289,28 @@ border-radius:8px;padding:6px 9px;font-size:12px;color:#fff;opacity:0;transition
   <div class="panel"><div id="chart-runtime"></div></div>
   <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
 
-  <h2>Sensitivity per caller</h2>
-  <p class="legend">Share of truth deletions detected (any matching call; common deletion within
-    &plusmn;80&nbsp;bp, others &plusmn;250&nbsp;bp). Evaluation only — callers are third-party.</p>
-  <div class="panel"><div id="chart-sens"></div></div>
+  <h2>Accuracy per caller</h2>
+  <p class="legend">Each caller as a binary deletion detector over the labelled cohort. Positives =
+    detectable deletion events; negatives = wild-type / duplication / inversion samples (a deletion
+    call there is a false positive). Forward-looking/ambiguous rows (wrap, dup-del, sub-size) are
+    excluded from these numbers. Evaluation only — never gates the build.</p>
+  <div class="panel" style="overflow:auto"><table id="accuracy"></table></div>
 
-  <h2>Speed vs sensitivity</h2>
-  <p class="legend">Lower-left = fast; upper = more sensitive. The reference caller is highlighted.</p>
+  <h2>Speed vs accuracy</h2>
+  <p class="legend">Lower-left = fast; upper = more accurate (balanced accuracy = ½(sensitivity+specificity)).
+    The reference caller is highlighted.</p>
   <div class="panel"><div id="chart-scatter"></div></div>
 
   <h2>Detection matrix — scenario &times; caller</h2>
-  <div class="controls" id="matrix-controls"></div>
+  <p class="legend">Default = the <b>Deletions</b> suite (what we test today). Tabs add the
+    forward-looking categories; <b>All</b> shows every scenario. Hover a sample name for what it tests.</p>
+  <div class="controls" id="matrix-tabs"></div>
+  <div id="eval-banner-slot"></div>
   <div class="panel scroll"><table class="matrix" id="matrix"></table></div>
-  <p class="legend"><span class="cell-yes" style="padding:1px 6px;border-radius:4px">detected</span>
-    &nbsp; <span class="cell-fp" style="padding:1px 6px;border-radius:4px">common-deletion call on a non-carrier (false positive)</span></p>
+  <div class="panel" style="overflow:auto;margin-top:10px"><table id="matrix-metrics"></table></div>
+  <p class="legend"><span class="cell-yes" style="padding:1px 6px;border-radius:4px">detected (TP)</span>
+    &nbsp; <span class="cell-fp" style="padding:1px 6px;border-radius:4px">false-positive deletion call</span>
+    &nbsp; <span class="cell-amb">amb/gap/sub = evaluation-only row (not scored)</span></p>
 
   <h2>All calls</h2>
   <div class="controls">
@@ -325,13 +339,21 @@ document.getElementById('subtitle').textContent =
   + (M.image ? ` · ${M.image}` : '');
 const fastest = CAL.filter(c=>D.runtime[c].mean!=null)
   .sort((a,b)=>D.runtime[a].mean-D.runtime[b].mean)[0];
-const sens = CAL.slice().sort((a,b)=>D.detection[b].n_detected-D.detection[a].n_detected);
+const pct1 = v => v==null ? '–' : Math.round(100*v)+'%';
+const M_ALL = c => (D.metrics[c]||{}).all || {};
+const M_DEL = c => (D.metrics[c]||{}).del || {};
+const bySens = CAL.filter(c=>M_DEL(c).sensitivity!=null)
+  .sort((a,b)=>M_DEL(b).sensitivity-M_DEL(a).sensitivity);
+const bySpec = CAL.filter(c=>M_ALL(c).specificity!=null)
+  .sort((a,b)=>M_ALL(b).specificity-M_ALL(a).specificity);
+const nPos = (M_DEL(CAL[0]).n_pos)||0, nNeg = (M_ALL(CAL[0]).n_neg)||0;
 const cards=[
   ['Callers', CAL.length],
-  ['Samples', M.n_samples],
-  ['Truth deletions', (D.detection[CAL[0]]||{}).n_truth_dels ?? 0],
+  ['Scenarios', M.n_samples],
+  ['Pos / neg', `${nPos} / ${nNeg}`],
   ['Fastest', fastest ? `${fastest} · ${D.runtime[fastest].mean}s` : '–'],
-  ['Most sensitive', sens[0] ? `${sens[0]} · ${D.detection[sens[0]].n_detected}/${D.detection[sens[0]].n_truth_dels}` : '–'],
+  ['Most sensitive', bySens[0] ? `${bySens[0]} · ${pct1(M_DEL(bySens[0]).sensitivity)}` : '–'],
+  ['Best specificity', bySpec[0] ? `${bySpec[0]} · ${pct1(M_ALL(bySpec[0]).specificity)}` : '–'],
 ];
 document.getElementById('cards').innerHTML = cards.map(([k,v])=>
   `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
@@ -393,17 +415,31 @@ boxChart('chart-runtime', CAL.map(c=>({label:c, color:col(c), b:D.runtime[c].box
   h+=`</tbody>`;document.getElementById('runtime-table').innerHTML=h;
 })();
 
-barChart('chart-sens', CAL.map(c=>{const d=D.detection[c];
-  return {label:c, v:d.n_detected, color:col(c),
-    vlabel:`${d.n_detected}/${d.n_truth_dels}`,
-    tip:`<b>${c}</b><br>${d.n_detected}/${d.n_truth_dels} truth deletions (${d.sensitivity}%)<br>${d.n_calls} total calls`
-      + (d.common_fp_samples.length?`<br><span style="color:#e5534b">common-del FP on: ${d.common_fp_samples.join(', ')}</span>`:'')};}));
+// ---- accuracy table (overall, all scored scenarios) ----
+const fmtPct = (v,n,d) => v==null ? '<span class="muted">–</span>'
+  : `${Math.round(100*v)}%${(n!=null&&d!=null)?` <span class="muted">(${n}/${d})</span>`:''}`;
+const fmtNum = v => v==null ? '<span class="muted">–</span>' : (Math.round(v*100)/100).toFixed(2);
+(function(){
+  const rows=CAL.slice().sort((a,b)=>((M_ALL(b).balanced_acc??-1)-(M_ALL(a).balanced_acc??-1)));
+  let h=`<thead><tr><th>caller</th><th class="num">sensitivity</th><th class="num">specificity</th>`
+    +`<th class="num">precision</th><th class="num">F1</th><th class="num">bal.acc</th><th class="num">MCC</th>`
+    +`<th class="num">FP</th></tr></thead><tbody>`;
+  rows.forEach(c=>{const a=M_ALL(c),dl=M_DEL(c);
+    const lbl=c==='mitohpc'?`<span class="tag ref">${c}</span>`:c;
+    h+=`<tr><td>${lbl}</td>`
+      +`<td class="num">${fmtPct(dl.sensitivity,dl.tp,dl.n_pos)}</td>`
+      +`<td class="num">${fmtPct(a.specificity,a.tn,a.n_neg)}</td>`
+      +`<td class="num">${fmtPct(a.precision)}</td><td class="num">${fmtNum(a.f1)}</td>`
+      +`<td class="num">${fmtPct(a.balanced_acc)}</td><td class="num">${fmtNum(a.mcc)}</td>`
+      +`<td class="num">${a.fp||0}${(a.common_fp_samples&&a.common_fp_samples.length)?' <span class="muted">('+a.common_fp_samples.length+' common)</span>':''}</td></tr>`;});
+  h+=`</tbody>`;document.getElementById('accuracy').innerHTML=h;
+})();
 
-// ---- scatter: mean runtime (x) vs sensitivity (y) ----
+// ---- scatter: mean runtime (x) vs balanced accuracy (y) ----
 (function(){
   const W=860,H=320,padL=50,padR=20,padT=14,padB=40;
-  const pts=CAL.map(c=>({c, x:D.runtime[c].mean, y:D.detection[c].sensitivity}))
-    .filter(p=>p.x!=null);
+  const pts=CAL.map(c=>({c, x:D.runtime[c].mean, y:(M_ALL(c).balanced_acc!=null?100*M_ALL(c).balanced_acc:null)}))
+    .filter(p=>p.x!=null && p.y!=null);
   const maxX=Math.max(1,...pts.map(p=>p.x)), maxY=100;
   const X=v=>padL+(W-padL-padR)*(v/maxX), Y=v=>H-padB-(H-padT-padB)*(v/maxY);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
@@ -411,39 +447,69 @@ barChart('chart-sens', CAL.map(c=>{const d=D.detection[c];
     s+=`<line class="gl" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}"/>`;
     s+=`<text x="${padL-6}" y="${gy+3}" text-anchor="end" fill="#9aa4b2">${(maxY*i/4)}%</text>`;}
   s+=`<text x="${(W)/2}" y="${H-6}" text-anchor="middle" fill="#9aa4b2">mean runtime (s)</text>`;
+  s+=`<text transform="translate(14 ${H/2}) rotate(-90)" text-anchor="middle" fill="#9aa4b2">balanced accuracy</text>`;
   pts.forEach(p=>{const r=p.c==='mitohpc'?7:6;
     s+=`<circle class="bar" cx="${X(p.x)}" cy="${Y(p.y)}" r="${r}" fill="${col(p.c)}"
         stroke="${p.c==='mitohpc'?'#fff':'none'}" stroke-width="1.5"
-        data-t="${encodeURIComponent(`<b>${p.c}</b><br>${p.x}s · ${p.y}% sensitivity`)}"/>`;
+        data-t="${encodeURIComponent(`<b>${p.c}</b><br>${p.x}s · ${Math.round(p.y)}% balanced acc`)}"/>`;
     s+=`<text x="${X(p.x)+9}" y="${Y(p.y)+3}">${p.c}</text>`;});
   s+=`</svg>`;
   const el=document.getElementById('chart-scatter'); el.innerHTML=s;
   el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
 })();
 
-// ---- detection matrix ----
-let mfilter='all';
+// ---- detection matrix (category tabs) ----
+const CATS = (D.categories||[]).concat([{key:'all',label:'All',blurb:'every scenario',eval_only:false}]);
+let mtab = (CATS.find(c=>c.key==='del')||CATS[0]||{key:'all'}).key;
+function tabCat(){ return CATS.find(c=>c.key===mtab) || {}; }
 function renderMatrix(){
-  const rows=D.matrix.filter(m=> mfilter==='all' ? true :
-    mfilter==='common' ? m.common :
-    mfilter==='del' ? (m.kind==='del'||m.kind==='delwrap') : true);
+  const cat=tabCat();
+  const rows=D.matrix.filter(m=> mtab==='all' ? true : m.category===mtab);
+  // eval-only banner
+  document.getElementById('eval-banner-slot').innerHTML = cat.eval_only
+    ? `<div class="eval-banner">Evaluation-only — forward-looking / ambiguous scenarios; never gates the build. ${cat.blurb||''}</div>` : '';
   let h=`<thead><tr><th>sample</th><th>truth event</th>`+
     CAL.map(c=>`<th>${c==='mitohpc'?'<span class="tag ref">'+c+'</span>':c}</th>`).join('')+`</tr></thead><tbody>`;
   rows.forEach(m=>{
-    h+=`<tr><td>${m.sample}</td><td>${m.label}</td>`;
+    const pop = m.popup ? ` data-pop="${encodeURIComponent(m.popup)}"` : '';
+    const nm = m.popup ? `<span class="pop"${pop}>${m.sample}</span>` : m.sample;
+    h+=`<tr class="${m.eval_only?'eval':''}"><td>${nm}</td><td>${m.label}${m.eval_only?'<span class="pill">eval</span>':''}</td>`;
     CAL.forEach(c=>{
       let cls='cell-no',txt='·';
-      if(m.detected && m.detected[c]){cls='cell-yes';txt='✓';}
-      if((m.fp||[]).includes(c)){cls='cell-fp';txt='FP';}
+      if(m.klass==='positive'){ if(m.detected&&m.detected[c]){cls='cell-yes';txt='✓';} }
+      else if(m.klass==='negative'){ const f=m.fp&&m.fp[c]; if(f){cls='cell-fp';txt=f.common?'FP✱':'FP';} }
+      else { const called=(m.detected&&m.detected[c])||(m.fp&&m.fp[c]);
+        if(called){cls='cell-amb';txt=m.reason==='wrap'?'wrap':m.reason==='knownfp'?'gap':m.reason==='sub'?'sub':'amb';} }
       h+=`<td class="c ${cls}">${txt}</td>`;});
     h+=`</tr>`;});
   h+=`</tbody>`;
   document.getElementById('matrix').innerHTML=h;
+  document.querySelectorAll('#matrix .pop').forEach(el=>{
+    el.onmousemove=e=>showTip(e,decodeURIComponent(el.dataset.pop)); el.onmouseleave=hideTip;});
+  renderMatrixMetrics();
 }
-const mc=document.getElementById('matrix-controls');
-[['all','all events'],['del','deletions'],['common','common deletion only']].forEach(([k,lab])=>{
-  const b=document.createElement('button');b.className='f'+(k==='all'?' on':'');b.textContent=lab;
-  b.onclick=()=>{mfilter=k;mc.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+function renderMatrixMetrics(){
+  const key=mtab, get=c=>(D.metrics[c]||{})[key]||{};
+  const any=get(CAL[0]), hasPos=(any.n_pos||0)>0, hasNeg=(any.n_neg||0)>0, full=key==='all';
+  const slot=document.getElementById('matrix-metrics');
+  if(!hasPos && !hasNeg){ slot.innerHTML='<p class="legend" style="padding:8px 4px">Evaluation-only category — forward-looking / ambiguous scenarios, not scored. The matrix above shows what each caller did.</p>'; return; }
+  let cols=['caller']; if(hasPos)cols.push('sensitivity'); if(hasNeg)cols.push('specificity','FP'); if(full)cols.push('precision','F1','bal.acc','MCC');
+  let h='<thead><tr>'+cols.map((c,i)=>`<th class="${i?'num':''}">${c}</th>`).join('')+'</tr></thead><tbody>';
+  const order=CAL.slice().sort((a,b)=>{const x=hasPos?'sensitivity':'specificity';return (get(b)[x]??-1)-(get(a)[x]??-1);});
+  order.forEach(c=>{const m=get(c),lbl=c==='mitohpc'?`<span class="tag ref">${c}</span>`:c;
+    h+=`<tr><td>${lbl}</td>`;
+    if(hasPos)h+=`<td class="num">${fmtPct(m.sensitivity,m.tp,m.n_pos)}</td>`;
+    if(hasNeg){h+=`<td class="num">${fmtPct(m.specificity,m.tn,m.n_neg)}</td>`;
+      h+=`<td class="num">${m.fp||0}${(m.fp_samples&&m.fp_samples.length)?' <span class="muted">('+m.fp_samples.join(', ')+')</span>':''}</td>`;}
+    if(full)h+=`<td class="num">${fmtPct(m.precision)}</td><td class="num">${fmtNum(m.f1)}</td><td class="num">${fmtPct(m.balanced_acc)}</td><td class="num">${fmtNum(m.mcc)}</td>`;
+    h+=`</tr>`;});
+  slot.innerHTML=h+'</tbody>';
+}
+const mc=document.getElementById('matrix-tabs');
+CATS.forEach(cat=>{
+  const b=document.createElement('button');b.className='f tab'+(cat.key===mtab?' on':'');
+  b.textContent=cat.label+(cat.eval_only?' ⚑':'');b.title=cat.blurb||'';
+  b.onclick=()=>{mtab=cat.key;mc.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');renderMatrix();};mc.appendChild(b);});
 renderMatrix();
 
@@ -477,6 +543,7 @@ def main(argv=None):
     ap.add_argument("--calls", required=True)
     ap.add_argument("--runtime", required=True)
     ap.add_argument("--truth", required=True)
+    ap.add_argument("--scenarios", default="", help="scenarios.json (categories + BAM popups)")
     ap.add_argument("--samples", default="")
     ap.add_argument("--out", required=True)
     ap.add_argument("--scope", default="full")
@@ -485,13 +552,15 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     truth = load_truth(args.truth)
+    scen = args.scenarios or os.path.join(os.path.dirname(args.truth), "scenarios.json")
+    categories, descriptions = load_scenarios(scen)
     calls = load_calls(args.calls)
     runtime = load_runtime(args.runtime)
     samples = [s for s in args.samples.replace(",", " ").split() if s]
     if not samples:
         samples = sorted({c["sample"] for c in calls} | {r["sample"] for r in runtime})
 
-    data = build(calls, runtime, truth, samples)
+    data = build(calls, runtime, truth, samples, categories, descriptions)
     meta = {"scope": args.scope, "image": args.image,
             "generated": args.generated or "(unstamped)", "n_samples": len(samples)}
     html = render_html(data, meta)

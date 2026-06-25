@@ -71,15 +71,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Full scenario suite (all 10 mock BAMs + CRAM + real BAMs + degenerate
+      # Full scenario suite (all 21 mock BAMs + CRAM + real BAMs + degenerate
       # inputs) on main/tags; the quicker 3-sample subset on PRs to keep PR CI
       # snappy. Override locally with a 3rd arg: `bash test/smoke_test.sh IMG all quick`.
+      #
+      # SUITE selects which mock BAMs run: "all" = the full MitoHPC SV suite
+      # (deletions + dup/inv/complex/origin); "del" = deletions + controls only —
+      # flip to "del" here if the full suite makes CI too slow (the 4th arg).
       - name: Functional smoke test (scenario cohort + comparison report)
         run: |
           SCOPE=full
           [[ "${{ github.event_name }}" == "pull_request" ]] && SCOPE=quick
+          SUITE=all   # <-- change to "del" to run only the deletion + control BAMs
           export MITO_SV_GENERATED="$(date -u +%Y-%m-%d) (${GITHUB_SHA::12})"
-          bash test/smoke_test.sh mito-sv:ci all "$SCOPE"
+          bash test/smoke_test.sh mito-sv:ci all "$SCOPE" "$SUITE"
 
       # Single LOD iteration (one tiny cell, both input arms) to prove the
       # limit-of-detection machinery runs end to end. The FULL sweep is the HPC

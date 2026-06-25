@@ -194,10 +194,28 @@ bash test/smoke_test.sh mito-sv:ci
 
 ### Test data
 
-[`test/data`](test/data) vendors the MitoHPC `sv-calling` test corpus
-(synthetic `chrM` BAMs with a [truth table](test/data/truth.tsv) plus a couple of
-real 1000G chrM BAMs and a del4977 spike-in). The headline truth: del4977 lives
-at breakpoints **8469–13447**.
+[`test/data`](test/data) vendors the MitoHPC `sv-calling` test corpus — **21
+synthetic `chrM` BAMs** spanning deletions (incl. the common del4977 at
+**8469–13447**, a non-repeat del, D-loop, multi-deletion, near-homoplasmy,
+low-coverage, and the 45 bp / 500 bp / 13 kb size bounds), origin-crossing
+deletions, tandem duplications, inversions, and complex (dup-del / inverted-dup)
+events — plus three real 1000G chrM BAMs and a del4977 spike-in. The per-sample
+`kind`/`expect` labels live in [truth.tsv](test/data/truth.tsv) and the
+categories + hover descriptions in [scenarios.json](test/data/scenarios.json).
+Caller behaviour on every scenario is **evaluation only** (the deletion/dup/inv
+expectations are MitoHPC's assertions about *its* caller, not gates for ours).
+
+The CI scenario suite runs the full set by default; flip `SUITE=del` in
+[docker-build.yml](.github/workflows/docker-build.yml) (or pass `del` as the 4th
+arg to `test/smoke_test.sh`) to run only the **deletions + controls** (13 BAMs,
+skipping the forward-looking dup/inv/complex BAMs) if the full suite is too slow.
+
+The interactive report scores each caller as a binary deletion detector and
+breaks results down **by category** — the detection matrix defaults to the
+**Deletions** tab with tabs for each category plus **All**, and reports
+per-category sensitivity, specificity, precision, F1, balanced accuracy and MCC
+(shared kernel: [pipeline/lib/sv_eval.py](pipeline/lib/sv_eval.py), unit-tested).
+Hover any BAM name in the matrix for what that scenario tests.
 
 ---
 
@@ -264,6 +282,7 @@ pipeline/
   postprocess.py           cohort consolidation (+ cohort_runtime.tsv)
   make_report.py           interactive docs/index.html generator
   lib/parsers.py           per-caller output parsers (unit-tested)
+  lib/sv_eval.py           categorize scenarios + per-category accuracy metrics
   lod/                     limit-of-detection sweep tooling
     make_testdata.py       vendored MitoHPC read simulator
     gen_cell.py            simulate one (deletion,vaf,depth) cell -> chrM BAM
@@ -281,12 +300,13 @@ slurm/
   lod_consolidate.sbatch   LOD analyze + report job
 test/
   test_parsers.py          parser unit tests
+  test_sv_eval.py          scenario categorization + accuracy-metric unit tests
   test_check_scenarios.py  scenario-evaluator unit tests
   test_lod_stats.py        LOD statistics unit tests
   check_scenarios.py       truth-driven caller-comparison evaluator
-  smoke_test.sh            full functional CI against the image
+  smoke_test.sh            full functional CI (SUITE=all|del) against the image
   lod_smoke.sh             single-iteration LOD CI gate
-  data/                    committed test BAMs + truth
+  data/                    committed test BAMs + truth.tsv + scenarios.json
 docs/index.html            interactive caller-comparison report (CI-generated)
 ```
 

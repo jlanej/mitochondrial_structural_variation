@@ -1,0 +1,61 @@
+{
+ "categories": [
+  {
+   "key": "del",
+   "label": "Deletions",
+   "blurb": "Implemented, PASS-able deletion class \u2014 positive controls, sensitivity/robustness, and the size-range bounds"
+  },
+  {
+   "key": "origin",
+   "label": "Origin-crossing",
+   "blurb": "delwrap events whose deleted arc crosses the artificial linear origin \u2014 reported as the complementary arc and WRAP-withheld today"
+  },
+  {
+   "key": "dup",
+   "label": "Duplications",
+   "blurb": "Tandem duplications \u2014 coverage gain blocks a deletion PASS; future SVTYPE=DUP positive controls"
+  },
+  {
+   "key": "inv",
+   "label": "Inversions",
+   "blurb": "Balanced inversions \u2014 opposite-strand junctions are strand-filtered and CN-neutral, so invisible to the DEL-only caller"
+  },
+  {
+   "key": "complex",
+   "label": "Complex",
+   "blurb": "Compound events: dup-del (embedded del that spuriously PASSes) and fold-back inverted dup"
+  },
+  {
+   "key": "control",
+   "label": "Controls",
+   "blurb": "Wild-type specificity substrate plus the real 1000G healthy negatives and the real-data spike-in positive"
+  }
+ ],
+ "descriptions": {
+  "sv_del4977_h30": "The canonical 4977 bp common deletion (m.8469-13447) at a comfortably-detectable 30% \u2014 the primary positive control and headline call the module exists to make. Pins COMMON=1, HOMLEN=13/HOMSEQ=ACCTCCCTCACCA, DELCLASS=I, AFC/AFJ~0.30, clean junction; it is also the BAM the example report is built on.",
+  "sv_del4977_h05": "The same common deletion at just 5% \u2014 the hardest true positive, setting the low-heteroplasmy sensitivity floor. Pins that the deletion is matched with correct breakpoints/annotation and AFC/AFJ~0.05 but falls short of PASS, surfacing for curation rather than being silently dropped.",
+  "sv_del6000_h50": "A ~5 kb non-repeat deletion (m.5999-10999) at 50% \u2014 the negative control for COMMON. Pins that an ordinary large deletion PASSes but is NOT spuriously stamped COMMON/REPEAT (COMMON!=1, DELCLASS!=I, Class III).",
+  "sv_multidel": "Two independent concurrent deletions in one sample \u2014 del4977 @25% and del6000 @15%, simulated separately. Pins that the caller emits separate records per junction (clustering does not merge distinct events) and that the junction estimate stays specific where coverage dosage is confounded by the overlap.",
+  "sv_homoplasmy": "Near-homoplasmic (95%) common deletion \u2014 a numerical edge case where the junction VAF approaches 1.0 and the spanning-read denominator approaches 0. Pins PASS with AFJ -> ~1.0 and no divide-by-zero/NaN crash, guarding the heteroplasmy arithmetic at the top of its range.",
+  "sv_dloop": "A genuine 5599 bp deletion whose 5' breakpoint (m.400) lies in the D-loop control region, a known artifact hotspot. Pins that the DLOOP flag is set WITHOUT suppressing a strong, clean, well-supported call (FILTER=PASS plus DLOOP in flags; flagging != filtering).",
+  "sv_lowcov": "The common deletion at 50% het but only 40x depth (vs ~300-400x elsewhere). Pins that the caller still recovers a clear high-heteroplasmy deletion when reads are scarce, so depth variability across a cohort does not drop real calls (detected and PASS).",
+  "sv_del_500": "A 500 bp deletion (m.8000-8501) \u2014 the small DETECTABLE positive control, large enough that the aligner splits it (190 SA reads) so it PASSes via the DJ path with AFC~0.50. Pins the lower bound of clean split-read detection.",
+  "sv_del_45": "A deliberate hard-negative: a 45 bp deletion below minsize=50 and small enough the aligner emits it as an internal CIGAR D (no SA split), so the caller \u2014 which seeds only from split-read junctions \u2014 sees nothing. Pins 0 records and the split-vs-gap boundary (an event smaller than a read is jumped, not split).",
+  "sv_del_13kb": "A genuine 13 kb majority-arc deletion (svlen > MTLEN/2) that \u2014 unlike the origin artifact \u2014 has a real coverage drop, so it PASSes via dosage. Pins the regression boundary that keeps WRAP honest: a big deletion WITH a drop is a real call, one without stays WRAP.",
+  "sv_origin": "An origin-crossing deletion (368 bp arc spanning position 1/16569, clipping OriH) \u2014 a real event the caller cannot yet resolve. Reported as the complementary ~16 kb retained arc with full coverage (CVGR~1.0), WRAP-flagged, SVCONF blanked. Pins NEVER a wrong PASS and never an invalid VCF (0 PASS, all coordinates <= contig length); future DUP.",
+  "sv_del_origin_spares": "An origin-crossing deletion (268 bp, m.16400->100) that SPARES the origins \u2014 identical WRAP today as sv_origin. Pins the origin-resolution regression pair: this one should resolve to a future DEL while sv_origin resolves to a DUP once origin-preservation lands.",
+  "sv_dup": "A 1 kb tandem duplication (m.6000-7000) at 50% \u2014 a coverage gain plus a reverse-order junction, the mirror of a deletion. Pins deletion-vs-duplication discrimination: the gain (CVGR>1) blocks PASS (no_cvg_drop) so it is detected as something but never called a deletion (0 PASS).",
+  "sv_dup_large": "A 5 kb tandem duplication (m.4000-9000, verified CVGR~1.5 i.e. 1+h). Pins that the gain guard rejects dups at large scale too (0 PASS); becomes a DUP positive control once SVTYPE=DUP lands.",
+  "sv_dupdel": "A partial dup-del: one molecule carries a dup junction (m.5000-8000) AND an internal deletion (m.6000-6500), the clinically dominant mtDNA dup class (KSS/Pearson). Exposes a documented KNOWN GAP \u2014 the embedded del shows a relative drop against the duplicated flanks and spuriously PASSes today; assertion flips when the DUP-aware caller closes it.",
+  "sv_invdup": "A fold-back inverted duplication (m.7000-7400): an opposite-strand SA arm co-located with a coverage gain \u2014 a Sniffles2 INVDUP, not a balanced inversion. The inverted arm is strand-filtered with no same-strand junction, so today -> 0 records.",
+  "sv_inv_small": "A balanced 500 bp inversion (m.6000-6500) \u2014 the single biggest blind spot: its junctions are opposite-strand (discarded by extract_junctions) and it is copy-number-neutral so dosage sees nothing. Pins 0 records; becomes an INV detect-and-flag fixture once the opposite-strand branch lands.",
+  "sv_inv_large": "A balanced 4 kb inversion (m.5000-9000). Pins that the inversion invisibility is independent of size \u2014 opposite-strand junctions and CN-neutrality still yield 0 records at large scale.",
+  "sv_inv_origin": "A balanced inversion near the artificial origin (m.16300-16560). Pins that inversion invisibility is independent of position \u2014 the strand-skip stacked near the origin still yields 0 records.",
+  "sv_inv_lowhet": "A low-heteroplasmy (5%) balanced inversion (m.8000-9000). Pins that inversion invisibility is independent of heteroplasmy; a future INV sensitivity floor once the opposite-strand branch lands.",
+  "sv_wt": "Pure wild-type with no event at all \u2014 the bedrock false-positive/specificity guard: a healthy genome must yield 0 PASS. Also the substrate the degenerate-input subtests mutate (empty/unindexed/wrong-contig/mtlen-mismatch BAMs).",
+  "NA12718": "Real 1000G 30x high-coverage chrM (CEU, ENA ERR3239480) \u2014 a healthy blood sample with no expected large deletion. Pins real-world specificity (0 PASS) against real NUMT reads, D-loop complexity, and error profiles that simulation cannot provide.",
+  "NA12748": "Real 1000G 30x high-coverage chrM (CEU, ENA ERR3239481), healthy background. Pins real-data specificity (0 PASS) as part of the real-world false-positive guard and the REAL arm of the LoD/accuracy sweep.",
+  "NA12775": "Real 1000G 30x high-coverage chrM (CEU, ENA ERR3239482), healthy background. Pins real-data specificity (0 PASS); together the three real negatives contribute 0/62 PASS in the quantitative LoD evaluation.",
+  "spike_del4977_h20": "del4977 spiked into a real WT 1000G background at 20% \u2014 the matching positive control on real data. Pins that a known common deletion dropped into real, error-laden, NUMT-bearing reads is still recovered as PASS with the correct COMMON annotation."
+ }
+}
