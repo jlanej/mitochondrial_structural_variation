@@ -26,10 +26,15 @@ ENV MAMBA_ROOT_PREFIX=/opt/conda \
 # --- system build/runtime deps (glibc base required by bundled ELF binaries) ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git wget curl unzip ca-certificates procps bash gawk bc \
+        bsdextrautils \
         build-essential make gcc g++ \
         libgd-dev zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libdb-dev \
         libncurses5 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+# bsdextrautils provides `column`, which Splice-Break2's inner script uses to
+# format its deletion tables (column -t at lines 110/142/170). Without it those
+# pipes write empty files -> CompareMT throws IndexOutOfBounds -> the result is
+# clobbered to 0 bytes on every sample (confirmed via the committed inner log).
 
 # Best-effort libtinfo.so.5 for MitoSeek's bundled 0.1.18 samtools ELF fallback
 # (the primary path uses conda samtools 0.1.19). Absent on some Debian releases,

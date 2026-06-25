@@ -33,7 +33,10 @@ test -f /opt/eKLIPse/data/NC_012920.1.gb
 # Assert the Python deps AND the external binaries eKLIPse shells out to are
 # present, so a missing tool fails the build rather than the first analysis run.
 micromamba run -n py2tools python -c "from Bio import SeqIO; import tqdm; print('biopython ok')"
-micromamba run -n py2tools bash -c 'command -v blastn makeblastdb circos samtools'
+# `column` (bsdextrautils, installed in the Dockerfile) must resolve in the same
+# context Splice-Break2's inner script runs in, or its table-formatting pipes
+# silently empty the deletion output. Assert it here so this can't regress.
+micromamba run -n py2tools bash -c 'command -v blastn makeblastdb circos samtools column'
 
 # --- Splice-Break2 ---------------------------------------------------------
 git clone https://github.com/brookehjelm/Splice-Break2 /tmp/Splice-Break2-src
