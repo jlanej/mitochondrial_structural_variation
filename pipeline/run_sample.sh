@@ -19,6 +19,10 @@ log() { printf '[run_sample %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 INPUT="" SAMPLE="" OUTDIR="" REFERENCE="" THREADS=4 MT_CONTIG=""
 CALLERS="mitohpc,eklipse,mitosalt,splicebreak2,mitomut,mitoseek"
 STRICT=0
+# --prepared* : skip preprocess and run callers DIRECTLY on a provided normalised
+# chrM BAM + mito FASTQ pair (used by the LOD circular-aware arm, which must keep
+# MitoHPC's circSam alignment rather than re-aligning with bwa mem).
+PREP_BAM="" PREP_R1="" PREP_R2=""
 
 usage() {
     cat >&2 <<EOF
@@ -45,15 +49,25 @@ while [[ $# -gt 0 ]]; do case "$1" in
     --threads)   THREADS="$2"; shift 2;;
     --callers)   CALLERS="$2"; shift 2;;
     --strict)    STRICT=1; shift;;
+    --prepared-bam) PREP_BAM="$2"; shift 2;;
+    --prepared-r1)  PREP_R1="$2"; shift 2;;
+    --prepared-r2)  PREP_R2="$2"; shift 2;;
     -h|--help)   usage 0;;
     *) log "unknown arg: $1"; usage 2;;
 esac; done
 
-[[ -n "$INPUT" && -n "$OUTDIR" ]] || usage 2
-[[ -f "$INPUT" ]] || { log "ERROR: input not found: $INPUT"; exit 1; }
-if [[ -z "$SAMPLE" ]]; then
-    SAMPLE="$(basename "$INPUT")"; SAMPLE="${SAMPLE%.cram}"; SAMPLE="${SAMPLE%.bam}"
-    SAMPLE="${SAMPLE%.chrM}"
+[[ -n "$OUTDIR" ]] || usage 2
+if [[ -n "$PREP_BAM" ]]; then
+    [[ -f "$PREP_BAM" && -f "$PREP_R1" && -f "$PREP_R2" ]] \
+        || { log "ERROR: --prepared-bam/-r1/-r2 must all be existing files"; exit 1; }
+    [[ -n "$SAMPLE" ]] || SAMPLE="$(basename "$PREP_BAM" .bam)"
+else
+    [[ -n "$INPUT" ]] || usage 2
+    [[ -f "$INPUT" ]] || { log "ERROR: input not found: $INPUT"; exit 1; }
+    if [[ -z "$SAMPLE" ]]; then
+        SAMPLE="$(basename "$INPUT")"; SAMPLE="${SAMPLE%.cram}"; SAMPLE="${SAMPLE%.bam}"
+        SAMPLE="${SAMPLE%.chrM}"
+    fi
 fi
 # Sanitise: callers use the sample name in filenames.
 SAMPLE="$(printf '%s' "$SAMPLE" | tr ' /' '__')"
@@ -65,19 +79,29 @@ PRE="$OUTDIR/preprocess"
 log "sample=$SAMPLE input=$INPUT outdir=$OUTDIR callers=$CALLERS threads=$THREADS"
 
 ###############################################################################
-# 1. preprocess
+# 1. preprocess (or use a prepared normalised BAM + FASTQ directly)
 ###############################################################################
-pp_args=(--input "$INPUT" --sample "$SAMPLE" --outdir "$PRE" --threads "$THREADS")
-[[ -n "$REFERENCE" ]] && pp_args+=(--reference "$REFERENCE")
-[[ -n "$MT_CONTIG" ]] && pp_args+=(--mt-contig "$MT_CONTIG")
-if ! bash "$HERE/preprocess.sh" "${pp_args[@]}"; then
-    log "ERROR: preprocessing failed for $SAMPLE"
-    exit 1
+if [[ -n "$PREP_BAM" ]]; then
+    log "using prepared inputs (skipping preprocess)"
+    mkdir -p "$PRE"
+    BAM="$(readlink -f "$PREP_BAM")"
+    R1="$(readlink -f "$PREP_R1")"
+    R2="$(readlink -f "$PREP_R2")"
+    # eKLIPse requires a .bai (circSam+sort emits .csi); ensure one exists.
+    [[ -f "${BAM}.bai" ]] || micromamba run -n mitosv samtools index -b "$BAM" 2>/dev/null || true
+else
+    pp_args=(--input "$INPUT" --sample "$SAMPLE" --outdir "$PRE" --threads "$THREADS")
+    [[ -n "$REFERENCE" ]] && pp_args+=(--reference "$REFERENCE")
+    [[ -n "$MT_CONTIG" ]] && pp_args+=(--mt-contig "$MT_CONTIG")
+    if ! bash "$HERE/preprocess.sh" "${pp_args[@]}"; then
+        log "ERROR: preprocessing failed for $SAMPLE"
+        exit 1
+    fi
+    BAM="$PRE/${SAMPLE}.chrM.bam"
+    R1="$PRE/${SAMPLE}.R1.fastq.gz"
+    R2="$PRE/${SAMPLE}.R2.fastq.gz"
+    [[ -f "$BAM" && -f "$R1" && -f "$R2" ]] || { log "ERROR: preprocessing outputs missing"; exit 1; }
 fi
-BAM="$PRE/${SAMPLE}.chrM.bam"
-R1="$PRE/${SAMPLE}.R1.fastq.gz"
-R2="$PRE/${SAMPLE}.R2.fastq.gz"
-[[ -f "$BAM" && -f "$R1" && -f "$R2" ]] || { log "ERROR: preprocessing outputs missing"; exit 1; }
 
 ###############################################################################
 # 2. run callers

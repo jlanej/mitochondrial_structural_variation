@@ -67,6 +67,12 @@ jobs:
           export MITO_SV_GENERATED="$(date -u +%Y-%m-%d) (${GITHUB_SHA::12})"
           bash test/smoke_test.sh mito-sv:ci all "$SCOPE"
 
+      # Single LOD iteration (one tiny cell, both input arms) to prove the
+      # limit-of-detection machinery runs end to end. The FULL sweep is the HPC
+      # job (slurm/run_lod.sh).
+      - name: LOD single-iteration gate
+        run: bash test/lod_smoke.sh mito-sv:ci
+
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3

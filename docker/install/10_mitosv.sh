@@ -18,7 +18,10 @@ micromamba create -y -n mitosv \
     pysam \
     numpy \
     pandas \
-    ucsc-blat
+    ucsc-blat \
+    perl
+# perl: the LOD generator's circular-aware realign pipes through MitoHPC's
+# circSam.pl (Perl); minimap2 + samtools above complete that path.
 
 # Build the canonical rCRS (NC_012920.1, contig "chrM", 16569 bp) indexes used
 # by the preprocessing realignment step. Bundled in the image -> no runtime DL.

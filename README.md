@@ -201,6 +201,43 @@ at breakpoints **8469–13447**.
 
 ---
 
+## Limit-of-detection (LOD) sweep
+
+A second batteries-included HPC entry point benchmarks **how low a heteroplasmy
+each caller can detect**, modeled on MitoHPC's own LOD methods but run for all
+six callers in parallel.
+
+```bash
+./slurm/run_lod.sh                     # full grid (default)
+./slurm/run_lod.sh --quick             # small grid
+./slurm/run_lod.sh --hets 0,0.05,0.1 --depths 1000,2000 --reps 10 --deletions del4977
+```
+
+For every cell `(deletion ∈ {del4977, del6000} × heteroplasmy × depth ×
+replicate)` it simulates a chrM BAM carrying that deletion at that VAF/depth
+(MitoHPC's deterministic [`make_testdata.py`](pipeline/lod/make_testdata.py),
+injective per-cell seed), runs all callers under **two input arms** — `pipeline`
+(bwa-mem normalization, production behaviour) and `circular` (MitoHPC's
+`minimap2 + circSam.pl` circular-aware BAM) — and scores detection (a call within
+**30 bp** summed breakpoint error). Each SLURM array task processes a chunk of
+cells across 24 threads, so the scheduler isn't flooded (full grid ≈ 4200 cells →
+~140 tasks). A dependent job aggregates the sweep:
+
+* per `(caller, depth, deletion, arm)`: a detection-probability curve over
+  heteroplasmy → **LOD50 / LOD95** (Firth-penalized logistic, separation-robust;
+  pure-Python, no scipy) with Wilson + cluster-bootstrap CIs and an empirical
+  transition read-out;
+* an interactive **`lod_report/index.html`** — methods, per-caller LOD curves,
+  detection heatmap, an LOD summary table, runtime, pipeline-vs-circular
+  comparison, and an interpretation guide.
+
+CI runs a **single-iteration gate** ([`test/lod_smoke.sh`](test/lod_smoke.sh)) —
+one tiny cell through both arms — to prove the machinery runs; the full sweep is
+the HPC job. The LOD statistics are unit-tested
+([`test/test_lod_stats.py`](test/test_lod_stats.py), no Docker).
+
+---
+
 ## Repository layout
 
 ```
@@ -210,20 +247,33 @@ assets/rCRS.chrM.fa        canonical rCRS reference (bundled)
 vendor/MitoSAlt_1.1.1/     vendored MitoSAlt source (no upstream git repo)
 pipeline/
   preprocess.sh            CRAM/BAM → normalised chrM BAM + mito FASTQ
-  run_sample.sh            per-sample driver (preprocess + all callers)
+  run_sample.sh            per-sample driver (preprocess + all callers; --prepared)
   callers/run_*.sh         one wrapper per caller (incl. run_mitohpc.sh)
   postprocess.py           cohort consolidation (+ cohort_runtime.tsv)
   make_report.py           interactive docs/index.html generator
   lib/parsers.py           per-caller output parsers (unit-tested)
+  lod/                     limit-of-detection sweep tooling
+    make_testdata.py       vendored MitoHPC read simulator
+    gen_cell.py            simulate one (deletion,vaf,depth) cell -> chrM BAM
+    run_cell.sh            one cell: generate + run callers (both arms) + score
+    score_cell.py          score detection vs truth (BP_TOL=30)
+    lod_stats.py           pure-Python LOD stats kernel (Firth logistic, Wilson)
+    analyze_lod.py         sweep -> lod_cells.tsv + lod_fits.tsv
+    make_lod_report.py     interactive LOD report generator
 slurm/
-  run_mito_sv.sh           HPC launcher (the entry point)
+  run_mito_sv.sh           cohort HPC launcher (the entry point)
   sample_job.sbatch        array task = one sample
   consolidate.sbatch       cohort summary job
+  run_lod.sh               LOD-sweep HPC launcher
+  lod_array.sbatch         LOD array task = a chunk of cells (24-thread)
+  lod_consolidate.sbatch   LOD analyze + report job
 test/
   test_parsers.py          parser unit tests
   test_check_scenarios.py  scenario-evaluator unit tests
+  test_lod_stats.py        LOD statistics unit tests
   check_scenarios.py       truth-driven caller-comparison evaluator
   smoke_test.sh            full functional CI against the image
+  lod_smoke.sh             single-iteration LOD CI gate
   data/                    committed test BAMs + truth
 docs/index.html            interactive caller-comparison report (CI-generated)
 ```
