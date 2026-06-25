@@ -21,7 +21,14 @@ micromamba create -y -n mitosalt \
     r-base \
     r-plotrix \
     r-rcolorbrewer \
-    bioconductor-biostrings
+    bioconductor-biostrings \
+    bioconductor-pwalign
+# pwalign: starting with Bioconductor 3.19, Biostrings::nucleotideSubstitutionMatrix()
+# (delplot.R line ~68) delegates to the split-out pwalign package. Without it
+# delplot.R ABORTS at runtime — after clustering, before writing indel/<tag>.tsv —
+# so MitoSAlt silently reports zero deletions on every sample (confirmed by a
+# local delplot.R repro of a del4977 cluster). The build-time check below now
+# exercises this exact call so a regression fails the build, not the run.
 
 cd /opt/MitoSAlt
 mkdir -p genome bin bam bw tab indel log plot
@@ -100,8 +107,10 @@ i_del = yes
 cn_mt = no
 CFG
 
-# Make sure the R plotting/scoring deps load from the conda lib (no runtime
-# Biostrings network install, which delplot.R would otherwise attempt).
-micromamba run -n mitosalt Rscript -e 'suppressMessages({library(plotrix);library(RColorBrewer);library(Biostrings)}); cat("MitoSAlt R deps OK\n")'
+# Make sure the R plotting/scoring deps load AND that the exact Biostrings call
+# delplot.R relies on actually runs (no runtime Biostrings network install, and
+# no missing-pwalign abort). nucleotideSubstitutionMatrix() is the operation
+# that silently broke MitoSAlt on every sample, so assert it here.
+micromamba run -n mitosalt Rscript -e 'suppressMessages({library(plotrix);library(RColorBrewer);library(Biostrings)}); m<-nucleotideSubstitutionMatrix(match=1,mismatch=-3,baseOnly=TRUE); stopifnot(is.matrix(m), m["A","A"]==1); cat("MitoSAlt R deps OK (nucleotideSubstitutionMatrix works)\n")'
 
 micromamba clean -a -y

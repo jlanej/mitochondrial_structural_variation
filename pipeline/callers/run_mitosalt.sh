@@ -60,18 +60,21 @@ n_split=$( [[ -f "$tabz" ]] && { zcat -f "$tabz" 2>/dev/null | grep -cv '^#' || 
 n_bp=$(_cnt "$work/indel/${tag}.breakpoint")
 n_clu=$(_cnt "$work/indel/${tag}.cluster")
 n_call=$(_cnt "$work/indel/${tag}.tsv"); [[ "$n_call" -gt 0 ]] && n_call=$((n_call - 1))
-# Forensic signals for the two suspected drop points (see review):
-#  * paired-name fraction: build_hash needs query names ending /1 or /2 (col 7);
-#    if reformat addslash failed, this is ~0 and mates mis-bin -> no breakpoints.
-#  * low-score arms: each split arm must clear score_threshold(=80)/lastal -e80;
-#    a short arm of a breakpoint-spanning 150bp read can score below it and be
-#    dropped, so count how many alignment rows score < 80.
+# Forensic signals. The final call is written by delplot.R, which the perl runs
+# via `R CMD BATCH` and whose return is IGNORED — so a fatal R error leaves the
+# perl finishing cleanly (:Finished) with no tsv. The truth is only in
+# delplot.Rout. (Historically delplot.R aborted at nucleotideSubstitutionMatrix()
+# for want of the pwalign package, zeroing every sample.)
 named="?"; lowscore="?"
 if [[ -f "$tabz" ]]; then
     tot="$(zcat -f "$tabz" 2>/dev/null | grep -cv '^#' || echo 0)"
     sl="$(zcat -f "$tabz" 2>/dev/null | awk '$1!~/^#/ && $7~/\/[12]$/' | wc -l | tr -d ' ')"
     ls="$(zcat -f "$tabz" 2>/dev/null | awk '$1!~/^#/ && $1<80' | wc -l | tr -d ' ')"
     named="${sl}/${tot}"; lowscore="${ls}/${tot}"
+fi
+delplot_err=0
+if [[ -f "$work/delplot.Rout" ]] && grep -qiE 'Execution halted|^Error' "$work/delplot.Rout"; then
+    delplot_err=1
 fi
 {
     echo "----- MitoSAlt under-the-hood diagnostics ($tag) -----"
@@ -82,17 +85,28 @@ fi
     echo "  arms score < 80   : $lowscore  (killed by score_threshold/lastal -e80)"
     echo "breakpoints         : $n_bp      (indel/${tag}.breakpoint; split reads with both arms kept)"
     echo "clusters            : $n_clu     (indel/${tag}.cluster; need >= cluster_threshold to call)"
+    echo "delplot.R errored   : $delplot_err   (R CMD BATCH exits 0 even on error; see delplot.Rout)"
     echo "final calls         : $n_call    (indel/${tag}.tsv rows)"
 } >&2
 [[ -f "$work/log/${tag}.log" ]] && { echo "----- log/${tag}.log (tail 40) -----" >&2; tail -n 40 "$work/log/${tag}.log" >&2; }
-[[ -f "$work/delplot.Rout" ]] && { echo "----- delplot.Rout (tail 30) -----" >&2; tail -n 30 "$work/delplot.Rout" >&2; }
-printf 'caller\tnative_rc\tcompleted\tsplit_aln\tpaired_name_arms\tlowscore_arms\tbreakpoints\tclusters\tcalls\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    mitosalt "$mitosalt_ok" "$finished" "$n_split" "$named" "$lowscore" "$n_bp" "$n_clu" "$n_call" > "$out_abs/mitosalt.runstatus"
+if [[ -f "$work/delplot.Rout" ]]; then
+    echo "----- delplot.Rout (errors / tail) -----" >&2
+    grep -iE 'Execution halted|^Error|Calls:' "$work/delplot.Rout" >&2 || tail -n 30 "$work/delplot.Rout" >&2
+fi
+printf 'caller\tnative_rc\tcompleted\tsplit_aln\tpaired_name_arms\tlowscore_arms\tbreakpoints\tclusters\tdelplot_err\tcalls\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    mitosalt "$mitosalt_ok" "$finished" "$n_split" "$named" "$lowscore" "$n_bp" "$n_clu" "$delplot_err" "$n_call" > "$out_abs/mitosalt.runstatus"
 # ---------------------------------------------------------------------------
 
 if [[ -f "$work/indel/${tag}.tsv" ]]; then
     cp "$work/indel/${tag}.tsv" "$out_abs/${tag}.mitosalt.tsv"
     log "calls -> ${tag}.mitosalt.tsv"; log "done"
+elif [[ "$n_clu" -gt 0 && ( "$delplot_err" == 1 || "$mitosalt_ok" == 0 ) ]]; then
+    # A real cluster (>= cluster_threshold) was found but no call was written —
+    # delplot.R errored or the perl aborted. This is a genuine FAILURE (the
+    # caller's internal pipeline broke), not "operated, no calls": fail loudly so
+    # CI surfaces it instead of masking it behind an empty header.
+    log "ERROR: $n_clu cluster(s) found but no ${tag}.tsv (delplot_err=$delplot_err, native_rc=$mitosalt_ok) — see delplot.Rout"
+    exit 1
 elif [[ "$finished" == 1 || "$mitosalt_ok" == 1 ]]; then
     # Ran to completion with zero deletion clusters: emit an empty (header-only)
     # result so this is recorded as "operated, no calls" rather than a failure.

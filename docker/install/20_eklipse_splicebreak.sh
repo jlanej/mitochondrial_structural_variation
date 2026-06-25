@@ -47,6 +47,83 @@ test -f /opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END/Splice-Break2_paired-
 test -f /opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END/NC_012920.1/NC.fa
 chmod -R u+rwX /opt/Splice-Break2
 
+# --- Patch CountBases.py (the inner mpileup base-counter) -------------------
+# Upstream reads only a SINGLE digit of an indel's +/-<len><seq> length and
+# indexes the read-base column one char at a time, so a multi-digit indel or an
+# indel token at the END of a WGS-depth pileup column throws IndexError. That
+# uncaught Python-2 exception aborts CountBases.py, which trips the inner
+# Splice-Break2_0725.sh `if [ $? -gt 0 ]; then exit` guard BEFORE it writes any
+# deletion table — yielding a 0-byte *_LargeMTDeletions_*.txt on every sample
+# (the del4977 junction is in MapSplice's junctions.txt but never processed).
+# The replacement reads the full multi-digit length and slices (bounds-safe);
+# all non-indel counting is byte-for-byte the upstream behaviour.
+SB_PE=/opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END
+for cb in "$SB_PE/Splice-Break_v3.0.1/reference/CountBases.py" \
+          "$SB_PE/Splice-Break_v3.0.1/ref_Nsub/CountBases.py"; do
+    [[ -f "$cb" ]] || continue
+    cat > "$cb" <<'PYEOF'
+import sys
+# NOTE: vendored Splice-Break2 helper, patched at image build
+# (docker/install/20_eklipse_splicebreak.sh). Only the +/- indel parse changed:
+# it now reads the FULL (multi-digit) indel length and slices the inserted bases
+# (bounds-safe), so WGS-depth pileups no longer crash it with IndexError. All
+# other counting is identical to upstream.
+inFile = open(sys.argv[1],'r')
+
+print 'bp\tA\tG\tC\tT\tdel\tins\tinserted\tambiguous'
+for line in inFile:
+        data = line.strip().split('\t')
+        if len(data) < 5:
+                continue
+        bp = data[1]
+        bases = data[4].upper()
+        ref = data[2].upper()
+
+        types = {'A':0,'G':0,'C':0,'T':0,'-':0,'+':[],'X':[]}
+
+        i = 0
+        while i < len(bases):
+                base = bases[i]
+                if base == '^' or base == '$':
+                        i += 1
+                elif base == '+' or base == '-':
+                        i += 1
+                        num = ''
+                        while i < len(bases) and bases[i].isdigit():
+                                num += bases[i]
+                                i += 1
+                        addNum = int(num) if num else 0
+                        addSeq = bases[i:i+addNum]
+                        i += addNum - 1
+                        if base == '+':
+                                types['+'].append(addSeq)
+                elif base == '*':
+                        types['-'] += 1
+                elif base == '.' or base == ',':
+                        types[ref] += 1
+                else:
+                        if types.has_key(base):
+                                types[base] += 1
+                        else:
+                                types['X'].append(base)
+
+                i += 1
+
+        adds = '.'
+        if len(types['+']) > 0:
+                adds = ','.join(types['+'])
+
+        amb = '.'
+        if len(types['X']) > 0:
+                amb = ','.join(types['X'])
+
+        out = [bp,types['A'],types['G'],types['C'],types['T'],types['-'],len(types['+']),adds,amb]
+        print '\t'.join([str(x) for x in out])
+PYEOF
+    micromamba run -n py2tools python "$cb" /dev/null >/dev/null \
+        && echo "patched + syntax-checked $cb"
+done
+
 # The bundled samtools v1.8 was built on CentOS and needs libcrypto.so.10
 # (OpenSSL 1.0), absent on the Debian base, so it fails at exec — used by the
 # driver (`samtools sort`) and the inner Splice-Break2_0725.sh (`samtools
