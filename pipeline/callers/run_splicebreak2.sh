@@ -74,28 +74,37 @@ n_junc=$( [[ -n "$junc" && -f "$junc" ]] && { wc -l < "$junc" | tr -d ' '; } || 
 n_del4977j=$( [[ -n "$junc" && -f "$junc" ]] && { awk '$2<=8600 && $3>=13300 && $3-$2>4000' "$junc" 2>/dev/null | wc -l | tr -d ' '; } || echo 0 )
 res_bytes=$( [[ -n "$res" && -f "$res" ]] && wc -c < "$res" | tr -d ' ' || echo 0 )
 n_del=$( [[ -n "$res" && -f "$res" && "$res_bytes" -gt 0 ]] && { c=$(wc -l < "$res"); echo $(( c > 1 ? c - 1 : 0 )); } || echo 0 )
-# The inner Splice-Break2_0725.sh exits early (before writing its 12-col header)
-# if mpileup/CountBases fail; a 0-byte result with junctions>0 means the deletion
-# was lost in the inner junction->deletion conversion / coverage join, not align.
+# The inner Splice-Break2_0725.sh logs an ordered set of progress markers and
+# exits at the first failing stage; the LAST marker reached localizes the drop
+# (its pipeline logic is verified to work on Linux, so the fault is a stage that
+# exits/empties on our input). Capture the last stage, the failed-step count, and
+# the key intermediate sizes so a single CI run pinpoints it.
 nohup="$(find "$sbout" -name '*_nohup.log' 2>/dev/null | head -1 || true)"
-gate="$( [[ -n "$nohup" && -f "$nohup" ]] && grep -oE '#+ ?ERROR[^>]*|Mapsplice Fail|steps failed' "$nohup" 2>/dev/null | head -3 | tr '\n' ';' || true )"
-pileup_lines=$( f="$(find "$sbout" -name 'pileup.txt' | head -1)"; [[ -n "$f" ]] && wc -l < "$f" | tr -d ' ' || echo 0 )
+last_stage="?"; steps_failed="?"
+if [[ -n "$nohup" && -f "$nohup" ]]; then
+    last_stage="$(grep -oE 'Running Samtools|Running CountBases.py|Adding per base coverage|Coverage with (rCRS|Nsub) reference|Using (average|left)_benchmark|Annotating|Applying Filter [12]|Create LargeMTDeletions[^ ]*|Annotation with Impact of Gene|Filtering Top 30[^ ]*|Junction Filter Steps Success' "$nohup" 2>/dev/null | tail -1 | tr ' ' '_')"
+    steps_failed="$(grep -oE '[0-9]+ steps failed' "$nohup" 2>/dev/null | tail -1 | grep -oE '^[0-9]+' || echo NA)"
+fi
+# inner intermediate sizes (in the inner outputDir under $sbout); NA if absent.
+ilines() { local f; f="$(find "$sbout" -name "$1" 2>/dev/null | head -1)"; [[ -n "$f" && -f "$f" ]] && { wc -l < "$f" | tr -d ' '; } || echo NA; }
+pileup_lines="$(ilines pileup.txt)"; basecounts="$(ilines BaseCounts.pileup.txt)"
+coverage="$(ilines Coverage.txt)"; modjunc="$(ilines modifiedJunc.txt)"; largedel="$(ilines large_deletions.txt)"
 {
     echo "----- Splice-Break2 under-the-hood diagnostics ($SAMPLE) -----"
     echo "driver clean exit    : $([[ "$sb_rc" == 0 ]] && echo 1 || echo "0 (rc=$sb_rc)")"
     echo "MapSplice junctions  : $n_junc   ($(basename "${junc:-none}"); 0 => alignment/MapSplice produced none)"
     echo "  del4977-like junc  : $n_del4977j   (junction spanning ~8470..13447)"
-    echo "mpileup positions    : $pileup_lines   (inner coverage input; 0 => mpileup/BAM empty)"
-    echo "result file          : ${res_bytes} bytes (0 => inner script exited before header => coverage/benchmark gate)"
-    echo "LargeMTDeletions rows: $n_del   (deletions surfaced to the WGS-only table)"
-    [[ -n "$gate" ]] && echo "inner gate markers   : $gate"
+    echo "LAST inner stage     : ${last_stage:-none}   (where Splice-Break2_0725.sh stopped)"
+    echo "inner steps_failed   : $steps_failed"
+    echo "intermediates        : pileup=$pileup_lines BaseCounts=$basecounts Coverage=$coverage modifiedJunc=$modjunc large_deletions=$largedel"
+    echo "result file          : ${res_bytes} bytes; LargeMTDeletions rows: $n_del"
 } >&2
 while IFS= read -r lf; do
     [[ -f "$lf" ]] || continue
-    echo "----- ${lf#"$out_abs"/} (tail 40) -----" >&2; tail -n 40 "$lf" >&2
+    echo "----- ${lf#"$out_abs"/} (tail 60) -----" >&2; tail -n 60 "$lf" >&2
 done < <(find "$sblog" "$sbout" -type f \( -name '*.log' -o -name '*_nohup.log' \) 2>/dev/null | head -20)
-printf 'caller\tnative_rc\tjunctions\tdel4977_junc\tresult_bytes\tcalls\n%s\t%s\t%s\t%s\t%s\t%s\n' \
-    splicebreak2 "$sb_rc" "$n_junc" "$n_del4977j" "$res_bytes" "$n_del" > "$out_abs/splicebreak2.runstatus"
+printf 'caller\tnative_rc\tjunctions\tdel4977_junc\tlast_stage\tsteps_failed\tpileup\tbasecounts\tcoverage\tmodjunc\tlargedel\tresult_bytes\tcalls\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    splicebreak2 "$sb_rc" "$n_junc" "$n_del4977j" "${last_stage:-none}" "$steps_failed" "$pileup_lines" "$basecounts" "$coverage" "$modjunc" "$largedel" "$res_bytes" "$n_del" > "$out_abs/splicebreak2.runstatus"
 # ---------------------------------------------------------------------------
 
 ok=0

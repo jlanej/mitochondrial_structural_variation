@@ -120,9 +120,15 @@ for line in inFile:
         out = [bp,types['A'],types['G'],types['C'],types['T'],types['-'],len(types['+']),adds,amb]
         print '\t'.join([str(x) for x in out])
 PYEOF
-    micromamba run -n py2tools python "$cb" /dev/null >/dev/null \
-        && echo "patched + syntax-checked $cb"
+    # Assert the patch actually survives the crashing input class (a terminal
+    # indel and a multi-digit indel length) and still emits rows — a single
+    # /dev/null check would pass even if the patch silently regressed.
+    printf 'chrM\t100\tA\t3\t..+1\tIII\nchrM\t101\tC\t4\t,,,+12ACGTACGTACGT\tIIII\n' > /tmp/_cb_test.pileup
+    cb_lines="$(micromamba run -n py2tools python "$cb" /tmp/_cb_test.pileup | wc -l || echo 0)"
+    [[ "$cb_lines" -ge 3 ]] || { echo "ERROR: patched CountBases.py crashed/empty on indel input ($cb)"; exit 1; }
+    echo "patched + crash-tested $cb ($cb_lines lines)"
 done
+rm -f /tmp/_cb_test.pileup
 
 # The bundled samtools v1.8 was built on CentOS and needs libcrypto.so.10
 # (OpenSSL 1.0), absent on the Debian base, so it fails at exec — used by the

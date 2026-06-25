@@ -299,6 +299,13 @@ uth_md="$EXDIR/UNDER_THE_HOOD.md"
 } > "$uth_md"
 echo "--- UNDER_THE_HOOD.md ---"; cat "$uth_md"
 
+# TEMPORARY debug: commit the positive sample's full Splice-Break2 wrapper log
+# (its under-the-hood stage map + the inner Splice-Break2_0725.sh nohup tails) so
+# the inner-script failure point is visible IN-REPO (the verbose bundle below is
+# artifact-only). Remove once Splice-Break2 produces non-empty output.
+sb_log="$OUT/$POS/splicebreak2/splicebreak2.log"
+[[ -f "$sb_log" ]] && cp "$sb_log" "$EXDIR/SPLICEBREAK2_DEBUG.log" && echo "wrote SPLICEBREAK2_DEBUG.log"
+
 # Verbose bundle: every caller's full log + sidecar + small native logs/
 # intermediates (no BAM/FASTQ/bigwig). Gitignored; uploaded as a CI artifact.
 DIAG="$REPO/test/_diagnostics"; rm -rf "$DIAG"; mkdir -p "$DIAG"
