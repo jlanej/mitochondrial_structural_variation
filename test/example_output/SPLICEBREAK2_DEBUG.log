@@ -1,4 +1,4 @@
-[splicebreak2 21:17:34] running Splice-Break2 on sv_del4977_h30
+[splicebreak2 22:20:49] running Splice-Break2 on sv_del4977_h30
 ls: cannot access '/out/sv_del4977_h30/splicebreak2/in/*r1.fastq': No such file or directory
 ls: cannot access '/out/sv_del4977_h30/splicebreak2/in/*READ1.fastq': No such file or directory
 ls: cannot access '/out/sv_del4977_h30/splicebreak2/in/*read1.fastq': No such file or directory
@@ -20,12 +20,12 @@ inner steps_failed   : ?
 intermediates        : pileup=NA BaseCounts=NA Coverage=NA modifiedJunc=NA large_deletions=NA
 result file          : 1743 bytes; LargeMTDeletions rows: 1
 ----- log/sv_del4977_h30.log (tail 60) -----
-[Thu Jun 25 21:17:41 2026] Mapsplice finished running (time used: 0:00:04.838757)
+[Thu Jun 25 22:20:55 2026] Mapsplice finished running (time used: 0:00:04.799891)
 -----------------------------------------------
      
 End of mapsplice.log
 -----------------------------------------------------------
-Starting /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 25-06-2026-21-17-34 on 56176b603c80
+Starting /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break2_paired-end.sh at 25-06-2026-22-20-49 on 2fde71b0260c
 Splice-Break2 v3.0.0 Paired-end
 outputDir: /out/sv_del4977_h30/splicebreak2/out
 logDir: /out/sv_del4977_h30/splicebreak2/log
@@ -44,16 +44,16 @@ DEDUPE + DEADAPT READ2 Line Count: 120208
 400 R2 PCR replicates removed
 -------------------------------------
 ### MAPSPLICE: sv_del4977_h30
-mkdir: created directory '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634'
-/usr/bin/python /out/sv_del4977_h30/splicebreak2/sb_install/MapSplice/v2.2.1/mapsplice.py -1 /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30-READ1.deduped.deAdapt.fq -2 /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30-READ2.deduped.deAdapt.fq -c /out/sv_del4977_h30/splicebreak2/sb_install/NC_012920.1 --non-canonical-double-anchor --bam --qual-scale phred33 -p 8 -o /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634 2> /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_mapsplice.log
+mkdir: created directory '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649'
+/usr/bin/python /out/sv_del4977_h30/splicebreak2/sb_install/MapSplice/v2.2.1/mapsplice.py -1 /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30-READ1.deduped.deAdapt.fq -2 /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30-READ2.deduped.deAdapt.fq -c /out/sv_del4977_h30/splicebreak2/sb_install/NC_012920.1 --non-canonical-double-anchor --bam --qual-scale phred33 -p 8 -o /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649 2> /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_mapsplice.log
 ### Sorting output
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/alignments.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/alignments.unsorted'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/alignments.sorted.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/alignments.bam'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/alignments.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/alignments.unsorted'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/alignments.sorted.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/alignments.bam'
 --------------------------------------
 ### Splice-Break: sv_del4977_h30
-Starting /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break_v3.0.1/Splice-Break2_0725.sh at 25-06-2026-21-17-41 on 56176b603c80
-MapSplice Dir: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634
-Output Dir: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634
+Starting /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break_v3.0.1/Splice-Break2_0725.sh at 25-06-2026-22-20-55 on 2fde71b0260c
+MapSplice Dir: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649
+Output Dir: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649
 Reference Dir: /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break_v3.0.1/reference
 Running Samtools
 Running CountBases.py
@@ -64,47 +64,47 @@ Annotating
 Applying Filter 1
 Create LargeMTDeletions_WGS-only_NoPositionFilter.txt
 Annotation with Impact of Gene
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/new_Impact.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/Large_Deletions_NC_012920.1_No-Position-Filter.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/new_Impact.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/Large_Deletions_NC_012920.1_No-Position-Filter.txt'
 Applying Filter 2
 Filtering Top 30 MapSplice_Break
 Junction Filter Steps Success
-Ending /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break_v3.0.1/Splice-Break2_0725.sh at 25-06-2026-21-17-46
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/Coverage.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_Coverage.txt'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/Large_Deletions_NC_012920.1_157-16125.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_LargeMTDeletions_LR-PCR_conservative_pos157-16125.txt'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/Large_Deletions_NC_012920.1_357-15925.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_LargeMTDeletions_LR-PCR_STRINGENT_pos357-15925.txt'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/Large_Deletions_NC_012920.1_No-Position-Filter.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_LargeMTDeletions_WGS-only_NoPositionFilter.txt'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/LargeMTDeletions_DNAorRNA_Top30_NARpub.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_LargeMTDeletions_DNAorRNA_Top30_NARpub.txt'
-renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/alignments.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/sv_del4977_h30_alignments.bam'
+Ending /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break_v3.0.1/Splice-Break2_0725.sh at 25-06-2026-22-21-01
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/Coverage.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_Coverage.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/Large_Deletions_NC_012920.1_157-16125.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_LargeMTDeletions_LR-PCR_conservative_pos157-16125.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/Large_Deletions_NC_012920.1_357-15925.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_LargeMTDeletions_LR-PCR_STRINGENT_pos357-15925.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/Large_Deletions_NC_012920.1_No-Position-Filter.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_LargeMTDeletions_WGS-only_NoPositionFilter.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/LargeMTDeletions_DNAorRNA_Top30_NARpub.txt' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_LargeMTDeletions_DNAorRNA_Top30_NARpub.txt'
+renamed '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/alignments.bam' -> '/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/sv_del4977_h30_alignments.bam'
 ### sv_del4977_h30 RUNTIME: 0m
 Delete all fq files
      
 End of nohup.log
 -----------------------------------------------------------
------ out/sv_del4977_h30_mapsplice-2506202634/logs/junc_db.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/junc_db.log (tail 60) -----
  read chrom: /out/sv_del4977_h30/splicebreak2/sb_install/NC_012920.1//NC.fa
 chrom size:16569
------ out/sv_del4977_h30_mapsplice-2506202634/logs/remap_unmapped.1_2sam.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/remap_unmapped.1_2sam.log (tail 60) -----
 min_len: 18446744073709551615
 max_len: 0
 read_count: 0
 total_count: 0
------ out/sv_del4977_h30_mapsplice-2506202634/logs/best_junction_semi_non_canon_remained_ROC.log (tail 60) -----
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/best/ori.all_junctions.filtered_by_min_mis_lpq.remained.txt
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/best_junction_semi_non_canon_remained_ROC.log (tail 60) -----
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/best/ori.all_junctions.filtered_by_min_mis_lpq.remained.txt
 in filtered 1hits junction: 1
 not in filtered 1hits junction: 0
------ out/sv_del4977_h30_mapsplice-2506202634/logs/sam2junc_ori.all_junctions.log (tail 60) -----
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/original/original.sam
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/original/ori.all_junctions.txt
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/sam2junc_ori.all_junctions.log (tail 60) -----
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/original/original.sam
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/original/ori.all_junctions.txt
 write junc
 /out/sv_del4977_h30/splicebreak2/sb_install/NC_012920.1//NC.fa
 sort junc
 2 junctions
------ out/sv_del4977_h30_mapsplice-2506202634/logs/alignment_handler_remap.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/alignment_handler_remap.log (tail 60) -----
 2
 chrom_dir do_filter min_ins max_del min_anchor min_junc_anchor min_mismatch do_clip mate_dist max_anchor_diff chrom_size input_sam1 input_sam2
 clear junction
 cleared junction
-first process: 0.717162
+first process: 0.702946
 NC
 write stat
 m_delete_len:6
@@ -118,7 +118,7 @@ delete: 0
 normal: 1
 clear junction
 cleared junction
-second process: 0.164273
+second process: 0.155077
 Convert hits to expressed regions 
 NC
 write stat
@@ -144,13 +144,13 @@ m_delete_len:6
 insert: 0
 delete: 0
 normal: 1
-third write junction: 0.000326
+third write junction: 0.000305
 WriteFusionJunctionWithEncompassingAlignments filtering
------ out/sv_del4977_h30_mapsplice-2506202634/logs/ori.all_junctions_filtered_by_min_mis_lpq.log (tail 60) -----
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/original/ori.all_junctions.txt
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/ori.all_junctions_filtered_by_min_mis_lpq.log (tail 60) -----
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/original/ori.all_junctions.txt
 in filtered 1hits junction: 1
 not in filtered 1hits junction: 0
------ out/sv_del4977_h30_mapsplice-2506202634/logs/mapsplice_remap.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/mapsplice_remap.log (tail 60) -----
 command: read_format parameter: -q
 command: num_read parameter: 60104
 command: minlen parameter: 150
@@ -163,77 +163,77 @@ min_read_len_detected: 150
 # of reads aligned: 60104 (100.00%) 
 # of reads have normal splice alignments: 167 (0.28%) 
 # of reads have fusion alignments: 0 (0.00%) 
------ out/sv_del4977_h30_mapsplice-2506202634/logs/remap_unmapped.2_2sam.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/remap_unmapped.2_2sam.log (tail 60) -----
 min_len: 18446744073709551615
 max_len: 0
 read_count: 0
 total_count: 0
------ out/sv_del4977_h30_mapsplice-2506202634/logs/SetUnmappedBitFlag.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/SetUnmappedBitFlag.log (tail 60) -----
 unmapped_read	0
------ out/sv_del4977_h30_mapsplice-2506202634/logs/read_chromo_sizes.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/read_chromo_sizes.log (tail 60) -----
 /out/sv_del4977_h30/splicebreak2/sb_install/NC_012920.1/NC
------ out/sv_del4977_h30_mapsplice-2506202634/logs/collectstats.log (tail 60) -----
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	unique	460
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_unique	59644
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_paired_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_paired_unique	59644
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_single_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_single_unique	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_fusion_paired_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_fusion_paired_unique	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	paired_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	paired_unique	460
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	single_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	single_unique	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_paired_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_paired_unique	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_canonical	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_semi_canonical	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_non_canonical	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_multiple	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_unique	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_paired	167
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_paired	293
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_paired	167
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_single	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_fusion_paired	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	small_insertion_junction	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	small_deletion_junction	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	canonical_junction	1
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_junction	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_junction	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_canon	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_semi_canon	0
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_non_canon	0
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/collectstats.log (tail 60) -----
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	unique	446
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_unique	59658
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_paired_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_paired_unique	59658
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_single_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_single_unique	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_fusion_paired_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	both_unspliced_fusion_paired_unique	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	paired_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	paired_unique	446
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	single_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	single_unique	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_paired_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_paired_unique	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_canonical	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_semi_canonical	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_non_canonical	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_multiple	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_unique	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_paired	167
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	spliced_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_paired	279
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	unspliced_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	insertion_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	deletion_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_paired	167
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	canoical_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_single	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	clipped_fusion_paired	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	small_insertion_junction	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	small_deletion_junction	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	canonical_junction	1
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	semi_canonical_junction	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	non_canonical_junction	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_canon	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_semi_canon	0
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/_filtered_normal_alignments.final_stat.txt	fusion_non_canon	0
 Unable to open file:.final_stat.txt
-/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/logs/SetUnmappedBitFlag.log	unmapped_read	0
-Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/fusions_candidates.txt
-Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/fusions_well_annotated.txt
-Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/fusions_not_well_annotated.txt
-Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/circular_RNAs.txt
------ out/sv_del4977_h30_mapsplice-2506202634/logs/bowtie_build.log (tail 60) -----
+/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/logs/SetUnmappedBitFlag.log	unmapped_read	0
+Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/fusions_candidates.txt
+Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/fusions_well_annotated.txt
+Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/fusions_not_well_annotated.txt
+Unable to open file:/out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/circular_RNAs.txt
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/bowtie_build.log (tail 60) -----
   Calculating Z arrays time: 00:00:00
   Entering block accumulator loop:
   10%
@@ -259,8 +259,8 @@ fchr[T]: 62
 fchr[$]: 76
 Exiting Ebwt::buildToDisk()
 Returning from initFromVector
-Wrote 4194613 bytes to primary EBWT file: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/syn_idx_prefix.rev.1.ebwt
-Wrote 16 bytes to secondary EBWT file: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202634/tmp/remap/syn_idx_prefix.rev.2.ebwt
+Wrote 4194613 bytes to primary EBWT file: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/syn_idx_prefix.rev.1.ebwt
+Wrote 16 bytes to secondary EBWT file: /out/sv_del4977_h30/splicebreak2/out/sv_del4977_h30_mapsplice-2506202649/tmp/remap/syn_idx_prefix.rev.2.ebwt
 Re-opening _in1 and _in2 as input streams
 Returning from Ebwt constructor
 Headers:
@@ -294,14 +294,14 @@ Headers:
     ebwtTotSz: 128
     reverse: 0
 Total time for backward call to driver() for mirror index: 00:00:00
------ out/sv_del4977_h30_mapsplice-2506202634/logs/check_reads_format.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/check_reads_format.log (tail 60) -----
 read_format -q
 num_read 60104
 minlen 150
 maxlen 150
 maxqualscore 70 minqualscore 33
 qual_scale phred33
------ out/sv_del4977_h30_mapsplice-2506202634/logs/mapsplice_original.log (tail 60) -----
+----- out/sv_del4977_h30_mapsplice-2506202649/logs/mapsplice_original.log (tail 60) -----
 command: read_format parameter: -q
 command: num_read parameter: 60104
 command: minlen parameter: 150
@@ -314,5 +314,5 @@ min_read_len_detected: 150
 # of reads aligned: 60104 (100.00%) 
 # of reads have normal splice alignments: 165 (0.27%) 
 # of reads have fusion alignments: 0 (0.00%) 
-[splicebreak2 21:17:46] calls -> sv_del4977_h30_LargeMTDeletions_WGS-only_NoPositionFilter.txt (1 deletion rows)
-[splicebreak2 21:17:46] done
+[splicebreak2 22:21:01] calls -> sv_del4977_h30_LargeMTDeletions_WGS-only_NoPositionFilter.txt (1 deletion rows)
+[splicebreak2 22:21:01] done

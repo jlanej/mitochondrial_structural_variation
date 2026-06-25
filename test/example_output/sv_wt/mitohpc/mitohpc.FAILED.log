@@ -1,5 +1,5 @@
-[mitohpc 21:29:25] running MitoHPC callSV on sv_wt
+[mitohpc 22:51:36] running MitoHPC callSV on sv_wt
 [callsv] sv_wt -> /out/sv_wt/mitohpc/sv_wt.sv.vcf (1 records)
 [callSV] sv_wt -> /out/sv_wt/mitohpc/sv_wt.sv.vcf (1 records)
-[mitohpc 21:29:28] calls -> mitohpc.sv.tab
-[mitohpc 21:29:28] done
+[mitohpc 22:51:39] calls -> mitohpc.sv.tab
+[mitohpc 22:51:39] done

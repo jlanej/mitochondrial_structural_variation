@@ -5,6 +5,18 @@ NA12718	mitosalt	0
 NA12718	splicebreak2	0					
 NA12718	mitomut	0					
 NA12718	mitoseek	0					
+NA12748	mitohpc	0					
+NA12748	eklipse	0					
+NA12748	mitosalt	0					
+NA12748	splicebreak2	0					
+NA12748	mitomut	0					
+NA12748	mitoseek	0					
+NA12775	mitohpc	0					
+NA12775	eklipse	0					
+NA12775	mitosalt	0					
+NA12775	splicebreak2	0					
+NA12775	mitomut	0					
+NA12775	mitoseek	0					
 spike_del4977_h20	mitohpc	1	8482	13446	4964	461	0.179
 spike_del4977_h20	eklipse	1	8469	13447	4978	1260	0.06128
 spike_del4977_h20	mitosalt	1	8470	13446	4977	369	16.31
@@ -35,6 +47,30 @@ sv_del6000_h50	mitosalt	0
 sv_del6000_h50	splicebreak2	0					
 sv_del6000_h50	mitomut	0					
 sv_del6000_h50	mitoseek	0					
+sv_del_13kb	mitohpc	0					
+sv_del_13kb	eklipse	0					
+sv_del_13kb	mitosalt	0					
+sv_del_13kb	splicebreak2	0					
+sv_del_13kb	mitomut	0					
+sv_del_13kb	mitoseek	0					
+sv_del_45	mitohpc	0					
+sv_del_45	eklipse	0					
+sv_del_45	mitosalt	0					
+sv_del_45	splicebreak2	0					
+sv_del_45	mitomut	0					
+sv_del_45	mitoseek	0					
+sv_del_500	mitohpc	0					
+sv_del_500	eklipse	0					
+sv_del_500	mitosalt	0					
+sv_del_500	splicebreak2	0					
+sv_del_500	mitomut	0					
+sv_del_500	mitoseek	0					
+sv_del_origin_spares	mitohpc	0					
+sv_del_origin_spares	eklipse	0					
+sv_del_origin_spares	mitosalt	0					
+sv_del_origin_spares	splicebreak2	0					
+sv_del_origin_spares	mitomut	0					
+sv_del_origin_spares	mitoseek	0					
 sv_dloop	mitohpc	0					
 sv_dloop	eklipse	0					
 sv_dloop	mitosalt	0					
@@ -47,12 +83,54 @@ sv_dup	mitosalt	0
 sv_dup	splicebreak2	0					
 sv_dup	mitomut	0					
 sv_dup	mitoseek	0					
+sv_dup_large	mitohpc	0					
+sv_dup_large	eklipse	0					
+sv_dup_large	mitosalt	0					
+sv_dup_large	splicebreak2	0					
+sv_dup_large	mitomut	0					
+sv_dup_large	mitoseek	0					
+sv_dupdel	mitohpc	0					
+sv_dupdel	eklipse	0					
+sv_dupdel	mitosalt	0					
+sv_dupdel	splicebreak2	0					
+sv_dupdel	mitomut	0					
+sv_dupdel	mitoseek	0					
 sv_homoplasmy	mitohpc	1	8482	13446	4964	440	0.95
 sv_homoplasmy	eklipse	1	8469	13447	4978	152	0.5529
 sv_homoplasmy	mitosalt	1	8470	13446	4977	358	94.71
 sv_homoplasmy	splicebreak2	1	8471	13449	4977	520	0.8836
 sv_homoplasmy	mitomut	1	8471	13449	4978	421	0.9285
 sv_homoplasmy	mitoseek	1	8483	13516	5033	25	
+sv_inv_large	mitohpc	0					
+sv_inv_large	eklipse	0					
+sv_inv_large	mitosalt	0					
+sv_inv_large	splicebreak2	0					
+sv_inv_large	mitomut	0					
+sv_inv_large	mitoseek	0					
+sv_inv_lowhet	mitohpc	0					
+sv_inv_lowhet	eklipse	0					
+sv_inv_lowhet	mitosalt	0					
+sv_inv_lowhet	splicebreak2	0					
+sv_inv_lowhet	mitomut	0					
+sv_inv_lowhet	mitoseek	0					
+sv_inv_origin	mitohpc	0					
+sv_inv_origin	eklipse	0					
+sv_inv_origin	mitosalt	0					
+sv_inv_origin	splicebreak2	0					
+sv_inv_origin	mitomut	0					
+sv_inv_origin	mitoseek	0					
+sv_inv_small	mitohpc	0					
+sv_inv_small	eklipse	0					
+sv_inv_small	mitosalt	0					
+sv_inv_small	splicebreak2	0					
+sv_inv_small	mitomut	0					
+sv_inv_small	mitoseek	0					
+sv_invdup	mitohpc	0					
+sv_invdup	eklipse	0					
+sv_invdup	mitosalt	0					
+sv_invdup	splicebreak2	0					
+sv_invdup	mitomut	0					
+sv_invdup	mitoseek	0					
 sv_lowcov	mitohpc	1	8482	13446	4964	29	0.488
 sv_lowcov	eklipse	1	8469	13447	4978	24	0.1667
 sv_lowcov	mitosalt	1	8470	13446	4977	24	41.38

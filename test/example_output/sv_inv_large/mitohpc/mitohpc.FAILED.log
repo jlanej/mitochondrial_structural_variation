@@ -1,0 +1,5 @@
+[mitohpc 22:38:04] running MitoHPC callSV on sv_inv_large
+[callsv] sv_inv_large -> /out/sv_inv_large/mitohpc/sv_inv_large.sv.vcf (1 records)
+[callSV] sv_inv_large -> /out/sv_inv_large/mitohpc/sv_inv_large.sv.vcf (1 records)
+[mitohpc 22:38:07] calls -> mitohpc.sv.tab
+[mitohpc 22:38:07] done
