@@ -1,5 +1,5 @@
-[mitohpc 15:14:45] running MitoHPC callSV on sv_homoplasmy
+[mitohpc 17:08:48] running MitoHPC callSV on sv_homoplasmy
 [callsv] sv_homoplasmy -> /out/sv_homoplasmy/mitohpc/sv_homoplasmy.sv.vcf (2 records)
 [callSV] sv_homoplasmy -> /out/sv_homoplasmy/mitohpc/sv_homoplasmy.sv.vcf (2 records)
-[mitohpc 15:14:48] calls -> mitohpc.sv.tab
-[mitohpc 15:14:48] done
+[mitohpc 17:08:50] calls -> mitohpc.sv.tab
+[mitohpc 17:08:50] done

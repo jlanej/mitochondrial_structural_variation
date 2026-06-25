@@ -9,7 +9,7 @@ for every sample x caller are uploaded by CI as the `caller-diagnostics` artifac
 | mitohpc | yes | yes | output present |
 | eklipse | yes | yes | output present |
 | mitosalt | yes | yes | native_rc=1 completed=1 split_aln=60905 paired_name_arms=60905/60905 lowscore_arms=0/60905 breakpoints=119 clusters=1 delplot_err=0 calls=1  |
-| splicebreak2 | yes | no(16) | native_rc=0 junctions=1 del4977_junc=1 result_bytes=0 calls=0  |
+| splicebreak2 | yes | no(16) | native_rc=0 junctions=1 del4977_junc=1 last_stage=? steps_failed=? pileup=NA basecounts=NA coverage=NA modjunc=NA largedel=NA result_bytes=0 calls=0  |
 | mitomut | yes | yes | output present |
 | mitoseek | yes | no(1) | output present |
 
