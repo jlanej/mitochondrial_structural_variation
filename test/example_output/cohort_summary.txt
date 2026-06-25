@@ -1,27 +1,27 @@
 Mitochondrial SV cohort summary
 ========================================
 samples: 13
-total calls (all types): 8820
+total calls (all types): 8832
 
 deletion calls per caller:
   mitohpc        33
   eklipse        11
-  mitosalt       0
+  mitosalt       9
   splicebreak2   0
   mitomut        12
   mitoseek       8764
 
 common (~4977 bp) deletion detection per sample:
   NA12718                  (none)
-  spike_del4977_h20        eklipse, mitohpc, mitomut, mitoseek
-  sv_del4977_h05           eklipse, mitohpc, mitomut, mitoseek
-  sv_del4977_h30           eklipse, mitohpc, mitomut, mitoseek
-  sv_del4977_h30_cram      eklipse, mitohpc, mitomut, mitoseek
+  spike_del4977_h20        eklipse, mitohpc, mitomut, mitosalt, mitoseek
+  sv_del4977_h05           eklipse, mitohpc, mitomut, mitosalt, mitoseek
+  sv_del4977_h30           eklipse, mitohpc, mitomut, mitosalt, mitoseek
+  sv_del4977_h30_cram      eklipse, mitohpc, mitomut, mitosalt, mitoseek
   sv_del6000_h50           (none)
   sv_dloop                 (none)
   sv_dup                   (none)
-  sv_homoplasmy            eklipse, mitohpc, mitomut, mitoseek
-  sv_lowcov                eklipse, mitohpc, mitomut
-  sv_multidel              eklipse, mitohpc, mitomut, mitoseek
+  sv_homoplasmy            eklipse, mitohpc, mitomut, mitosalt, mitoseek
+  sv_lowcov                eklipse, mitohpc, mitomut, mitosalt
+  sv_multidel              eklipse, mitohpc, mitomut, mitosalt, mitoseek
   sv_origin                (none)
   sv_wt                    (none)

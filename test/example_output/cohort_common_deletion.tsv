@@ -7,25 +7,25 @@ NA12718	mitomut	0
 NA12718	mitoseek	0					
 spike_del4977_h20	mitohpc	1	8482	13446	4964	461	0.179
 spike_del4977_h20	eklipse	1	8469	13447	4978	1260	0.06128
-spike_del4977_h20	mitosalt	0					
+spike_del4977_h20	mitosalt	1	8470	13446	4977	369	16.31
 spike_del4977_h20	splicebreak2	0					
 spike_del4977_h20	mitomut	1	8471	13449	4978	435	0.1503
 spike_del4977_h20	mitoseek	1	8411	13447	5036	25	
 sv_del4977_h05	mitohpc	1	8482	13446	4964	32	0.019
 sv_del4977_h05	eklipse	1	8469	13447	4978	375	0.01537
-sv_del4977_h05	mitosalt	0					
+sv_del4977_h05	mitosalt	1	8470	13446	4977	29	4.574
 sv_del4977_h05	splicebreak2	0					
 sv_del4977_h05	mitomut	1	8471	13449	4978	31	0.03897
 sv_del4977_h05	mitoseek	1	8406	13447	5041	4	
 sv_del4977_h30	mitohpc	1	8482	13446	4964	154	0.268
 sv_del4977_h30	eklipse	1	8469	13447	4978	249	0.09544
-sv_del4977_h30	mitosalt	0					
+sv_del4977_h30	mitosalt	1	8470	13446	4977	119	26.74
 sv_del4977_h30	splicebreak2	0					
 sv_del4977_h30	mitomut	1	8471	13449	4978	141	0.2501
 sv_del4977_h30	mitoseek	1	8405	13447	5042	8	
 sv_del4977_h30_cram	mitohpc	1	8482	13446	4964	154	0.268
 sv_del4977_h30_cram	eklipse	1	8469	13447	4978	249	0.09544
-sv_del4977_h30_cram	mitosalt	0					
+sv_del4977_h30_cram	mitosalt	1	8470	13446	4977	119	26.74
 sv_del4977_h30_cram	splicebreak2	0					
 sv_del4977_h30_cram	mitomut	1	8471	13449	4978	141	0.2501
 sv_del4977_h30_cram	mitoseek	1	8405	13447	5042	8	
@@ -49,19 +49,19 @@ sv_dup	mitomut	0
 sv_dup	mitoseek	0					
 sv_homoplasmy	mitohpc	1	8482	13446	4964	440	0.95
 sv_homoplasmy	eklipse	1	8469	13447	4978	152	0.5529
-sv_homoplasmy	mitosalt	0					
+sv_homoplasmy	mitosalt	1	8470	13446	4977	358	94.71
 sv_homoplasmy	splicebreak2	0					
 sv_homoplasmy	mitomut	1	8471	13449	4978	421	0.9285
 sv_homoplasmy	mitoseek	1	8483	13516	5033	25	
 sv_lowcov	mitohpc	1	8482	13446	4964	29	0.488
 sv_lowcov	eklipse	1	8469	13447	4978	24	0.1667
-sv_lowcov	mitosalt	0					
+sv_lowcov	mitosalt	1	8470	13446	4977	24	41.38
 sv_lowcov	splicebreak2	0					
 sv_lowcov	mitomut	1	8471	13449	4978	28	0.4056
 sv_lowcov	mitoseek	0					
 sv_multidel	mitohpc	1	8482	13446	4964	180	0.369
 sv_multidel	eklipse	1	8469	13447	4978	290	0.09132
-sv_multidel	mitosalt	0					
+sv_multidel	mitosalt	1	8470	13446	4977	144	24.74
 sv_multidel	splicebreak2	0					
 sv_multidel	mitomut	1	8471	13449	4978	170	0.2405
 sv_multidel	mitoseek	1	8409	13447	5038	11	

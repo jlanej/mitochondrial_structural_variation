@@ -3951,6 +3951,7 @@ spike_del4977_h20	mitohpc	deletion	111	16530	16419	777	0.223	0	filter=no_cvg_dro
 spike_del4977_h20	mitohpc	deletion	8482	13446	4964	461	0.179	1	filter=PASS;flags=REPEAT
 spike_del4977_h20	mitohpc	deletion	10934	10987	53	589	0.249	0	filter=PASS;flags=.
 spike_del4977_h20	eklipse	deletion	8469	13447	4978	1260	0.06128	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+spike_del4977_h20	mitosalt	deletion	8470	13446	4977	369	16.31	1	repeat=ACCTCCCTCACCA
 spike_del4977_h20	mitomut	deletion	8471	13449	4978	435	0.1503	1	s1=221;s2=214
 spike_del4977_h20	mitoseek	deletion	146	458	312	5		0	span_reads=5
 spike_del4977_h20	mitoseek	deletion	133	415	282	3		0	span_reads=3
@@ -7941,6 +7942,7 @@ spike_del4977_h20	mitoseek	deletion	16207	16465	258	6		0	span_reads=6
 sv_del4977_h05	mitohpc	deletion	48	16467	16419	455	0.378	0	filter=no_cvg_drop;flags=DLOOP
 sv_del4977_h05	mitohpc	deletion	8482	13446	4964	32	0.019	1	filter=no_cvg_drop;low_dosage;flags=REPEAT
 sv_del4977_h05	eklipse	deletion	8469	13447	4978	375	0.01537	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_del4977_h05	mitosalt	deletion	8470	13446	4977	29	4.574	1	repeat=ACCTCCCTCACCA
 sv_del4977_h05	mitomut	deletion	8471	13449	4978	31	0.03897	1	s1=14;s2=17
 sv_del4977_h05	mitoseek	deletion	88	16261	16173	18		0	span_reads=18
 sv_del4977_h05	mitoseek	deletion	94	16317	16223	11		0	span_reads=11
@@ -8007,6 +8009,7 @@ sv_del4977_h05	mitoseek	deletion	8406	13447	5041	4		1	span_reads=4
 sv_del4977_h30	mitohpc	deletion	47	16466	16419	342	0.391	0	filter=no_cvg_drop;flags=DLOOP
 sv_del4977_h30	mitohpc	deletion	8482	13446	4964	154	0.268	1	filter=PASS;flags=REPEAT
 sv_del4977_h30	eklipse	deletion	8469	13447	4978	249	0.09544	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_del4977_h30	mitosalt	deletion	8470	13446	4977	119	26.74	1	repeat=ACCTCCCTCACCA
 sv_del4977_h30	mitomut	deletion	8471	13449	4978	141	0.2501	1	s1=70;s2=71
 sv_del4977_h30	mitoseek	deletion	131	16368	16237	7		0	span_reads=7
 sv_del4977_h30	mitoseek	deletion	138	16305	16167	13		0	span_reads=13
@@ -8086,6 +8089,7 @@ sv_del4977_h30	mitoseek	deletion	8483	13640	5157	5		0	span_reads=5
 sv_del4977_h30_cram	mitohpc	deletion	47	16466	16419	342	0.391	0	filter=no_cvg_drop;flags=DLOOP
 sv_del4977_h30_cram	mitohpc	deletion	8482	13446	4964	154	0.268	1	filter=PASS;flags=REPEAT
 sv_del4977_h30_cram	eklipse	deletion	8469	13447	4978	249	0.09544	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_del4977_h30_cram	mitosalt	deletion	8470	13446	4977	119	26.74	1	repeat=ACCTCCCTCACCA
 sv_del4977_h30_cram	mitomut	deletion	8471	13449	4978	141	0.2501	1	s1=70;s2=71
 sv_del4977_h30_cram	mitoseek	deletion	131	16368	16237	7		0	span_reads=7
 sv_del4977_h30_cram	mitoseek	deletion	138	16305	16167	13		0	span_reads=13
@@ -8165,6 +8169,7 @@ sv_del4977_h30_cram	mitoseek	deletion	8483	13640	5157	5		0	span_reads=5
 sv_del6000_h50	mitohpc	deletion	49	16468	16419	393	0.39	0	filter=no_cvg_drop;flags=DLOOP
 sv_del6000_h50	mitohpc	deletion	6000	10998	4998	265	0.527	0	filter=PASS;flags=.
 sv_del6000_h50	eklipse	deletion	5999	10999	5000	207	0.2475	0	repeat=5996-GCT-5998 <> 10997-GCT-10999
+sv_del6000_h50	mitosalt	deletion	6000	10998	4999	217	48.76	0	repeat=AGC
 sv_del6000_h50	mitomut	deletion	5999	10999	5000	205	0.4062	0	s1=95;s2=110
 sv_del6000_h50	mitoseek	deletion	83	16214	16131	9		0	span_reads=9
 sv_del6000_h50	mitoseek	deletion	106	16241	16135	9		0	span_reads=9
@@ -8257,6 +8262,7 @@ sv_del6000_h50	mitoseek	deletion	6001	11210	5209	3		0	span_reads=3
 sv_dloop	mitohpc	deletion	77	16496	16419	375	0.385	0	filter=no_cvg_drop;flags=DLOOP
 sv_dloop	mitohpc	deletion	400	5998	5598	209	0.397	0	filter=PASS;flags=DLOOP
 sv_dloop	eklipse	deletion	399	5999	5600	251	0.1719	0	repeat=400-T-400 <> 5999-T-5999
+sv_dloop	mitosalt	duplication	5999	399	10970	171	36	0	repeat=NA
 sv_dloop	mitomut	deletion	399	5999	5600	156	0.305	0	s1=77;s2=79
 sv_dloop	mitoseek	deletion	86	16314	16228	9		0	span_reads=9
 sv_dloop	mitoseek	deletion	119	16262	16143	7		0	span_reads=7
@@ -8346,6 +8352,7 @@ sv_dloop	mitoseek	deletion	401	6207	5806	3		0	span_reads=3
 sv_dup	mitohpc	deletion	50	16469	16419	380	0.389	0	filter=no_cvg_drop;flags=DLOOP
 sv_dup	mitohpc	deletion	6108	6959	851	192	0.178	0	filter=no_cvg_drop;low_dosage;flags=.
 sv_dup	eklipse	deletion	6999	5999	-1000	364	0.1242	0	repeat=7000-T-7000 <> 5999-T-5999
+sv_dup	mitosalt	duplication	5999	6999	1001	222	32.46	0	repeat=TC
 sv_dup	mitomut	deletion	5999	7000	1001	94	0.1009	0	s1=36;s2=58
 sv_dup	mitoseek	deletion	141	16312	16171	8		0	span_reads=8
 sv_dup	mitoseek	deletion	111	16336	16225	14		0	span_reads=14
@@ -8443,6 +8450,7 @@ sv_dup	mitoseek	deletion	6334	6916	582	4		0	span_reads=4
 sv_homoplasmy	mitohpc	deletion	47	16466	16419	353	0.374	0	filter=no_cvg_drop;flags=DLOOP
 sv_homoplasmy	mitohpc	deletion	8482	13446	4964	440	0.95	1	filter=PASS;flags=REPEAT
 sv_homoplasmy	eklipse	deletion	8469	13447	4978	152	0.5529	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_homoplasmy	mitosalt	deletion	8470	13446	4977	358	94.71	1	repeat=ACCTCCCTCACCA
 sv_homoplasmy	mitomut	deletion	8471	13449	4978	421	0.9285	1	s1=203;s2=218
 sv_homoplasmy	mitoseek	deletion	141	16367	16226	8		0	span_reads=8
 sv_homoplasmy	mitoseek	deletion	87	16210	16123	5		0	span_reads=5
@@ -8542,6 +8550,7 @@ sv_homoplasmy	mitoseek	deletion	8483	13657	5174	9		0	span_reads=9
 sv_lowcov	mitohpc	deletion	34	16453	16419	64	0.451	0	filter=no_cvg_drop;flags=DLOOP
 sv_lowcov	mitohpc	deletion	8482	13446	4964	29	0.488	1	filter=PASS;flags=REPEAT
 sv_lowcov	eklipse	deletion	8469	13447	4978	24	0.1667	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_lowcov	mitosalt	deletion	8470	13446	4977	24	41.38	1	repeat=ACCTCCCTCACCA
 sv_lowcov	mitomut	deletion	8471	13449	4978	28	0.4056	1	s1=12;s2=16
 sv_lowcov	mitoseek	deletion	112	16266	16154	3		0	span_reads=3
 sv_lowcov	mitoseek	deletion	141	16341	16200	4		0	span_reads=4
@@ -8557,6 +8566,8 @@ sv_multidel	mitohpc	deletion	6000	10998	4998	109	0.324	0	filter=PASS;flags=.
 sv_multidel	mitohpc	deletion	8482	13446	4964	180	0.369	1	filter=PASS;flags=REPEAT
 sv_multidel	eklipse	deletion	5999	10999	5000	258	0.06284	0	repeat=5996-GCT-5998 <> 10997-GCT-10999
 sv_multidel	eklipse	deletion	8469	13447	4978	290	0.09132	1	repeat=8470-ACCTCCCTCACCA-8482 <> 13447-ACCTCCCTCACCA-13459
+sv_multidel	mitosalt	deletion	6000	10998	4999	87	16.63	0	repeat=AGC
+sv_multidel	mitosalt	deletion	8470	13446	4977	144	24.74	1	repeat=ACCTCCCTCACCA
 sv_multidel	mitomut	deletion	8471	13449	4978	170	0.2405	1	s1=84;s2=86
 sv_multidel	mitomut	deletion	5999	10999	5000	82	0.1252	0	s1=38;s2=44
 sv_multidel	mitoseek	deletion	91	16288	16197	17		0	span_reads=17
@@ -8661,6 +8672,7 @@ sv_multidel	mitoseek	deletion	8483	13615	5132	7		0	span_reads=7
 sv_multidel	mitoseek	deletion	8483	13639	5156	6		0	span_reads=6
 sv_origin	mitohpc	deletion	37	16456	16419	308	0.399	0	filter=no_cvg_drop;flags=DLOOP
 sv_origin	mitohpc	deletion	293	16344	16051	201	0.215	0	filter=no_cvg_drop;flags=DLOOP
+sv_origin	mitosalt	duplication	200	16400	16201	235	38.09	0	repeat=AC
 sv_origin	mitomut	deletion	200	16400	16200	119	0.1303	0	s1=59;s2=60
 sv_origin	mitoseek	deletion	137	16393	16256	9		0	span_reads=9
 sv_origin	mitoseek	deletion	112	16315	16203	6		0	span_reads=6
