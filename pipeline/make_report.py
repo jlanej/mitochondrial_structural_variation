@@ -285,7 +285,9 @@ button.f.tab{font-weight:600}
 
   <h2>Runtime per caller</h2>
   <p class="legend">Wall-clock seconds per sample across the cohort (successful runs) — box = IQR,
-    line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers. Hover the box for detail.</p>
+    line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers. Hover the box for detail.
+    Relative, not absolute: the CI cohort runs several samples concurrently, so these reflect load;
+    the LOD sweep is the isolated per-method timing.</p>
   <div class="panel"><div id="chart-runtime"></div></div>
   <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
 

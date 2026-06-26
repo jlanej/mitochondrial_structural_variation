@@ -93,18 +93,44 @@ run_one() {  # <input> <sample>
            --threads 2 --callers "$CALLERS" || true
 }
 
+# Per-sample runs are independent (separate outdirs), so run several at once to
+# use the runners multiple cores. Detection/accuracy results are deterministic
+# and UNCHANGED by concurrency; only the per-caller runtimes reflect concurrent
+# load (the headline positive runs alone, below; the LOD sweep is the isolated
+# timing). Default = min(nproc, 3) (RAM-safe on a 16 GB runner); override with
+# SMOKE_CONC (1 = fully serial, e.g. for clean runtime numbers).
+CONC="${SMOKE_CONC:-0}"
+if [ "$CONC" -le 0 ]; then CONC="$(nproc 2>/dev/null || echo 2)"; [ "$CONC" -gt 3 ] && CONC=3; fi
+echo "scenario concurrency: $CONC"
+pool_run() {  # stdin: "<input>\t<sample>" per line; throttled to $CONC
+    while IFS=$'\t' read -r inp s; do
+        [ -n "$s" ] || continue
+        run_one "$inp" "$s" &
+        while [ "$(jobs -rp | wc -l)" -ge "$CONC" ]; do wait -n || true; done
+    done
+    wait
+}
+
 if [ "$SCOPE" = quick ]; then
     run_one /data/bams/'"$POS"'.bam "$POS"
     run_one /data/bams/sv_wt.bam   sv_wt
 else
-    # Mock scenario BAMs selected for the suite (deletion-only or full).
-    for s in $SUITE_BAMS; do
-        run_one /data/bams/"$s".bam "$s"
-    done
+    # The canonical positive FIRST and ALONE: protects the operating gate (no
+    # concurrency-induced OOM on the gated sample) and keeps its headline runtime
+    # uncontended. The rest of the cohort + real BAMs then run concurrently.
+    run_one /data/bams/'"$POS"'.bam "$POS"
+    { for s in $SUITE_BAMS; do
+        [ "$s" = "'"$POS"'" ] || printf "/data/bams/%s.bam\t%s\n" "$s" "$s"
+      done
+      printf "/data/real/spike_del4977_h20.chrM.bam\tspike_del4977_h20\n"
+      printf "/data/real/NA12718.chrM.bam\tNA12718\n"
+      printf "/data/real/NA12748.chrM.bam\tNA12748\n"
+      printf "/data/real/NA12775.chrM.bam\tNA12775\n"
+    } | pool_run
 fi
 
 # CRAM round-trip of the canonical positive (CRAM input path; decoded offline
-# via the seeded rCRS reference cache).
+# via the seeded rCRS reference cache). Serial — depends on the prep above.
 $SAM view -b -o /out/_pos.bam /data/bams/"$POS".bam
 $SAM index /out/_pos.bam
 $SAM view -C -T /opt/assets/rCRS.chrM.fa -o /out/"$POS".cram /out/_pos.bam
@@ -112,13 +138,6 @@ $SAM index /out/"$POS".cram
 run_one /out/"$POS".cram "${POS}_cram"
 
 if [ "$SCOPE" != quick ]; then
-    # Real 1000G data: a del4977 spike-in (sensitivity) + healthy samples
-    # (specificity) — mirrors MitoHPC check_real.
-    run_one /data/real/spike_del4977_h20.chrM.bam spike_del4977_h20
-    run_one /data/real/NA12718.chrM.bam           NA12718
-    run_one /data/real/NA12748.chrM.bam           NA12748
-    run_one /data/real/NA12775.chrM.bam           NA12775
-
     # Degenerate inputs (robustness): must fail cleanly, never hang/traceback.
     : > /out/_degen.txt
     # (a) wrong mito-contig name
