@@ -287,8 +287,7 @@ button.f.tab{font-weight:600}
   <p class="legend">Wall-clock seconds per sample across the cohort (successful runs).
     <b>bars</b> = median per caller; <b>box-and-whisker</b> = the full distribution
     (box = IQR, line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers).
-    Relative, not absolute: the CI cohort runs several samples concurrently, so these reflect load;
-    the LOD sweep is the isolated per-method timing.</p>
+    Relative on these small test inputs, not absolute; the LOD sweep is the authoritative timing.</p>
   <div class="controls" id="runtime-toggle"></div>
   <div class="panel"><div id="chart-runtime"></div></div>
   <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
