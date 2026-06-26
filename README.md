@@ -324,6 +324,14 @@ docs/index.html            interactive caller-comparison report (CI-generated)
 * **Splice-Break2 / MitoSAlt realign from FASTQ**; eKLIPse / MitoMut / MitoSeek
   consume the normalised BAM. MitoSeek SV output for mito-only input is the
   large-deletion read set, which `parsers.py` clusters into calls.
+* **MitoHPC calls are always typed `deletion`.** `parse_mitohpc` (in `parsers.py`)
+  labels every row `sv_type=deletion` and does not read MitoHPC's own `svtype`
+  column. Harmless as run here — MitoHPC runs in its default deletion-only mode, so
+  every row already is a deletion — but if it is ever run with `HP_SV_DUP` /
+  `HP_SV_INV` enabled, its `DUP` / `INV` calls would be mislabeled `deletion` in
+  `cohort_sv_calls.tsv`. Binary-detector scoring is unaffected (a span call on a
+  duplication already counts as a deletion-like call); supporting those event types
+  would mean mapping the `svtype` column in `parse_mitohpc`.
 * **Licensing.** eKLIPse is AGPL-3.0, MitoSeek GPL-2.0, MitoSAlt permissive;
   MitoMut and Splice-Break2 ship no explicit license and Splice-Break2 bundles
   MapSplice2 (academic-use). The published image is intended for research use —
