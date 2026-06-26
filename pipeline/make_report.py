@@ -275,6 +275,10 @@ border-radius:8px;padding:6px 10px;font-size:12px;margin:0 0 8px}
 tr.eval td{background:rgba(255,255,255,.02)}
 .pill{display:inline-block;padding:0 6px;border-radius:999px;font-size:10px;border:1px solid var(--line);color:var(--mut);margin-left:6px}
 .pop{cursor:help;border-bottom:1px dotted var(--mut)}
+.scoring summary{cursor:pointer;font-size:14px;color:var(--ink);margin:4px 0;font-weight:600}
+.pad{padding:1px 6px;border-radius:4px;font-weight:600}
+.defs{width:auto;margin:6px 0}
+.defs td{padding:3px 10px 3px 0;vertical-align:top;border:none;white-space:normal}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 button.f.tab{font-weight:600}
 </style></head><body>
@@ -282,6 +286,30 @@ button.f.tab{font-weight:600}
   <h1>Mitochondrial SV caller comparison</h1>
   <p class="sub" id="subtitle"></p>
   <div class="cards" id="cards"></div>
+
+  <details class="scoring" open>
+    <summary>How a call is scored — definitions (evaluation only, never gates the build)</summary>
+    <div class="panel" style="margin-top:8px">
+      <p class="legend" style="margin-top:0">A <b>deletion-like call</b> is a parsed record typed
+        <code>deletion</code> or <code>duplication</code> carrying both breakpoints (a 5&prime;&ndash;3&prime; span).
+        A caller's reported read support, heteroplasmy and SVLEN are recorded but <b>not required</b> to
+        match &mdash; scoring is <b>breakpoint-only</b>.</p>
+      <p class="legend">A call <b>matches a truth deletion</b> when <b>both</b> breakpoints fall within
+        tolerance: the <b id="m-common">common</b> deletion within <b id="m-ctol">80</b>&nbsp;bp of each
+        breakpoint, any other deletion within <b id="m-gtol">250</b>&nbsp;bp of each. One record matches at
+        most one truth event (nearest breakpoints win), so two concurrent deletions need two records.</p>
+      <table class="defs">
+        <tr><td><span class="cell-yes pad">TP</span></td><td>a real, detectable deletion event with at least one matching deletion-like call</td></tr>
+        <tr><td><span class="pad muted">FN</span></td><td>a real, detectable deletion event with no matching call (a miss)</td></tr>
+        <tr><td><span class="cell-fp pad">FP</span></td><td>a deletion-like call on a sample with <b>no</b> deletion present (wild-type / duplication / inversion)</td></tr>
+        <tr><td><span class="pad muted">TN</span></td><td>a no-deletion sample on which the caller makes no deletion-like call (correct rejection)</td></tr>
+        <tr><td><span class="cell-amb pad">excl</span></td><td>origin-crossing (wrap), dup-del (known gap) and sub-size (&lt;&nbsp;minsize) rows are shown but <b>not scored</b></td></tr>
+      </table>
+      <p class="legend">sensitivity = TP/(TP+FN) &middot; specificity = TN/(TN+FP) &middot;
+        precision = TP/(TP+FP) &middot; F1 = 2&middot;P&middot;R/(P+R) &middot;
+        balanced&nbsp;accuracy = &frac12;(sensitivity+specificity) &middot; MCC&nbsp;(Matthews correlation).</p>
+    </div>
+  </details>
 
   <h2>Runtime per caller</h2>
   <p class="legend">Wall-clock seconds per sample across the cohort (successful runs).
@@ -340,6 +368,13 @@ function hideTip(){tip.style.opacity=0;}
 document.getElementById('subtitle').textContent =
   `${M.n_samples} samples · ${CAL.length} callers · scope ${M.scope} · generated ${M.generated}`
   + (M.image ? ` · ${M.image}` : '');
+// fill the scoring-criteria numbers from the actual constants (single source of truth)
+if(M.match){
+  document.getElementById('m-ctol').textContent = M.match.common_tol;
+  document.getElementById('m-gtol').textContent = M.match.gen_tol;
+  document.getElementById('m-common').textContent =
+    `m.${M.match.common_bp5}_${M.match.common_bp3} common`;
+}
 const fastest = CAL.filter(c=>D.runtime[c].mean!=null)
   .sort((a,b)=>D.runtime[a].mean-D.runtime[b].mean)[0];
 const pct1 = v => v==null ? '–' : Math.round(100*v)+'%';
@@ -581,7 +616,16 @@ def main(argv=None):
 
     data = build(calls, runtime, truth, samples, categories, descriptions)
     meta = {"scope": args.scope, "image": args.image,
-            "generated": args.generated or "(unstamped)", "n_samples": len(samples)}
+            "generated": args.generated or "(unstamped)", "n_samples": len(samples),
+            # exact scoring criteria, sourced from the constants so the on-page
+            # definitions always match the code that produced the numbers.
+            "match": {
+                "gen_tol": sv_eval.GEN_TOL,
+                "common_tol": parsers.COMMON_DEL_TOL,
+                "common_bp5": parsers.COMMON_DEL_BP5,
+                "common_bp3": parsers.COMMON_DEL_BP3,
+                "types": "deletion / duplication",
+            }}
     html = render_html(data, meta)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w") as fh:
