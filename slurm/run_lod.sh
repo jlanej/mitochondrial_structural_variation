@@ -30,21 +30,24 @@ del_bp() {  # <name> <5|3> -> echo breakpoint, or return 1 if unknown
 }
 KNOWN_DELS="del4977 del6000"
 
-# --- defaults (full grid, per MitoHPC --full) ---
-HETS="0,0.005,0.01,0.02,0.03,0.04,0.05,0.06,0.08,0.10,0.15,0.20,0.30,0.50"
-DEPTHS="250,500,1000,2000,4000"
-REPS=30
+# --- defaults (LOD grid: 10 hets x 4 depths x 10 reps x 2 deletions = 800 cells) ---
+# Heteroplasmy is dense at the low end (where the LOD lives); depth tops out at
+# 2000x to expose how real-world depth warps caller runtime (see the report's
+# runtime-vs-depth panel) without the runaway cost of 4000x.
+HETS="0,0.01,0.02,0.03,0.05,0.08,0.10,0.20,0.30,0.50"
+DEPTHS="250,500,1000,2000"
+REPS=10
 DELS="del4977,del6000"
 ARMS="pipeline,circular"
-THREADS="${MITO_SV_LOD_THREADS:-24}"   # cores per array task
-TPC="${MITO_SV_LOD_TPC:-4}"            # threads per cell -> concurrency = THREADS/TPC
-CELLS_PER_JOB="${MITO_SV_LOD_CPJ:-30}" # cells per array task (keeps #jobs modest)
+THREADS="${MITO_SV_LOD_THREADS:-24}"   # cores per array task (--cpus-per-task)
+TPC="${MITO_SV_LOD_TPC:-2}"            # threads per cell -> concurrency = THREADS/TPC = 12
+CELLS_PER_JOB="${MITO_SV_LOD_CPJ:-12}" # cells/task (= concurrency: one full wave per job)
 OUTDIR="${MITO_SV_LOD_OUTDIR:-$PWD/lod_out}"
 IMAGE="${MITO_SV_IMAGE:-ghcr.io/jlanej/mitochondrial_structural_variation:latest}"
 SIF="${MITO_SV_SIF:-}"
 PARTITION="${MITO_SV_PARTITION:-}"; ACCOUNT="${MITO_SV_ACCOUNT:-}"
-TIME="${MITO_SV_LOD_TIME:-24:00:00}"; MEM="${MITO_SV_LOD_MEM:-48G}"
-MAX_ARRAY="${MITO_SV_LOD_MAX_ARRAY:-100}"
+TIME="${MITO_SV_LOD_TIME:-12:00:00}"; MEM="${MITO_SV_LOD_MEM:-64G}"
+MAX_ARRAY="${MITO_SV_LOD_MAX_ARRAY:-300}"   # don't throttle the array (cluster handles it)
 LOCAL=0; DRYRUN=0
 
 usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2; exit "${1:-2}"; }
@@ -74,12 +77,21 @@ esac; done
 mkdir -p "$OUTDIR"; OUTDIR="$(cd "$OUTDIR" && pwd)"
 manifest="$OUTDIR/cells.manifest.tsv"; : > "$manifest"
 IFS=',' read -ra DELA <<< "$DELS"; IFS=',' read -ra HETA <<< "$HETS"; IFS=',' read -ra DEPA <<< "$DEPTHS"
-for d in "${DELA[@]}"; do
-    b5="$(del_bp "$d" 5)" || die "unknown deletion '$d' (known: $KNOWN_DELS)"
-    b3="$(del_bp "$d" 3)"
-    for h in "${HETA[@]}"; do for dp in "${DEPA[@]}"; do for ((r=0; r<REPS; r++)); do
-        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$d" "$b5" "$b3" "$h" "$dp" "$r" >> "$manifest"
-    done; done; done
+# Validate + cache breakpoints once.
+declare -a DB5 DB3
+for i in "${!DELA[@]}"; do
+    DB5[$i]="$(del_bp "${DELA[$i]}" 5)" || die "unknown deletion '${DELA[$i]}' (known: $KNOWN_DELS)"
+    DB3[$i]="$(del_bp "${DELA[$i]}" 3)"
+done
+# Emit cells with DEPTH innermost so each contiguous cells-per-job chunk spans the
+# full depth range — every array task then carries a balanced mix of cheap (250x)
+# and expensive (2000x) cells instead of one task hogging all the deep ones.
+for ((r=0; r<REPS; r++)); do
+    for i in "${!DELA[@]}"; do
+        for h in "${HETA[@]}"; do for dp in "${DEPA[@]}"; do
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${DELA[$i]}" "${DB5[$i]}" "${DB3[$i]}" "$h" "$dp" "$r" >> "$manifest"
+        done; done
+    done
 done
 n="$(wc -l < "$manifest" | tr -d ' ')"
 [[ "$n" -gt 0 ]] || die "empty grid"

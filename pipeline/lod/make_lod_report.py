@@ -74,25 +74,26 @@ def build(cells, fits, sweep, arms):
             "lod95_lo": _f(r["lod95_lo"]), "lod95_hi": _f(r["lod95_hi"]),
         }
 
-    # runtime DISTRIBUTIONS per (arm,caller) and per caller (all arms), from the
-    # raw per-cell runtime_s, for boxplots + a summary table.
-    rt_by = defaultdict(list)
-    rt_all = defaultdict(list)
+    # runtime DISTRIBUTIONS keyed "arm|depth|caller" (arm in all/pipeline/circular,
+    # depth in all/<value>) from the raw per-cell runtime_s — boxplots, the summary
+    # table, AND the runtime-vs-depth view (how depth warps caller runtime).
+    rt = defaultdict(list)
     for r in sweep:
         s = _f(r.get("runtime_s"))
         if s is None or r.get("status") != "ok":
             continue
-        rt_by[(r["arm"], r["caller"])].append(s)
-        rt_all[r["caller"]].append(s)
+        c, arm = r["caller"], r["arm"]
+        dp = _f(r.get("depth"))
+        dp = int(dp) if dp is not None else None
+        for a in ("all", arm):
+            for d in ("all", dp):
+                if d is not None:
+                    rt[(a, d, c)].append(s)
     runtime_box = {}
-    for (arm, caller), vals in rt_by.items():
+    for (arm, depth, caller), vals in rt.items():
         b = S.boxstats(vals)
         if b:
-            runtime_box["%s|%s" % (arm, caller)] = _round_box(b)
-    for caller, vals in rt_all.items():
-        b = S.boxstats(vals)
-        if b:
-            runtime_box["all|%s" % caller] = _round_box(b)
+            runtime_box["%s|%s|%s" % (arm, depth, caller)] = _round_box(b)
 
     return {
         "callers": callers, "arms": arms, "variants": variants,
@@ -174,11 +175,16 @@ All values are heteroplasmy %.</p>
 
 <h2>Runtime</h2>
 <div class="panel"><div id="runtime"></div></div>
-<p class="legend">Per-cell wall-clock seconds per caller for the selected arm — box = IQR, line = median,
-diamond = mean, whiskers = 1.5×IQR, dots = outliers. The spread reflects depth/heteroplasmy variation
-across cells. Relative on these inputs, not absolute.</p>
+<p class="legend">Per-cell wall-clock seconds per caller for the selected arm (all depths) — box = IQR,
+line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers. Relative on these inputs, not absolute.</p>
+
+<h3 style="margin:18px 0 6px">Runtime vs depth — how sequencing depth warps cost</h3>
+<div class="panel"><div id="runtime-depth"></div></div>
+<p class="legend">Median seconds/cell per caller across simulated depth (selected arm). Real-world mtDNA depth
+runs to thousands× — the alignment-heavy callers steepen sharply toward 2000×, while the lightweight ones
+stay flat. This is the single biggest driver of LOD-sweep cost.</p>
 <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
-<p class="legend">Runtime distribution per caller (selected arm). Seconds per cell.</p>
+<p class="legend">Median seconds/cell per caller × depth (selected arm).</p>
 
 <h2>Pipeline vs circular-aware input</h2>
 <p>Two input preparations are compared: <b>pipeline</b> re-normalises the reads with
@@ -218,7 +224,7 @@ function cellsOf(arm,variant,depth,caller){return D.cells[[arm,variant,depth,cal
 (function(){
   const pd=sel.depth, arm=D.arms[0], v=D.variants[0];
   const ranked=D.callers.map(c=>({c,lod:fitOf(arm,v,pd,c).lod95})).filter(x=>x.lod!=null).sort((a,b)=>a.lod-b.lod);
-  const rt=D.callers.map(c=>({c,b:D.runtime['all|'+c]})).filter(x=>x.b!=null).sort((a,b)=>a.b.med-b.b.med);
+  const rt=D.callers.map(c=>({c,b:D.runtime['all|all|'+c]})).filter(x=>x.b!=null).sort((a,b)=>a.b.med-b.b.med);
   const cards=[['Callers',D.callers.length],['Deletions',D.variants.length],
     ['Most sensitive',ranked[0]?`${ranked[0].c} · ${pct(ranked[0].lod)}%`:'—'],
     ['Fastest (median)',rt[0]?`${rt[0].c} · ${rt[0].b.med}s`:'—']];
@@ -237,7 +243,8 @@ document.getElementById('controls').innerHTML=
 ['selArm','selVar','selDep'].forEach(id=>document.getElementById(id).onchange=e=>{
   if(id=='selArm')sel.arm=e.target.value; if(id=='selVar')sel.variant=e.target.value; if(id=='selDep')sel.depth=+e.target.value; redraw();});
 
-function redraw(){drawCurve();drawHeat();drawSummary();drawRuntime();drawArmCmp();}
+function redraw(){drawCurve();drawHeat();drawSummary();drawRuntime();drawRuntimeDepth();drawArmCmp();}
+function rtbox(arm,depth,c){return D.runtime[arm+'|'+depth+'|'+c];}
 
 function drawCurve(){
   const W=860,H=340,L=52,R=18,T=14,B=42;const vafs=D.vafs;
@@ -293,7 +300,7 @@ function drawSummary(){
 }
 
 function drawRuntime(){
-  const items=D.callers.map(c=>({c,b:D.runtime[sel.arm+'|'+c]})).filter(x=>x.b!=null);
+  const items=D.callers.map(c=>({c,b:rtbox(sel.arm,'all',c)})).filter(x=>x.b!=null);
   const el=document.getElementById('runtime'), tbl=document.getElementById('runtime-table');
   if(!items.length){el.innerHTML='<span class="legend">no runtime data for this arm</span>';tbl.innerHTML='';return;}
   const W=820,rh=34,L=120,R=70,T=10,B=26,H=T+B+items.length*rh,hb=9;
@@ -315,11 +322,37 @@ function drawRuntime(){
   });
   s+=`</svg>`;el.innerHTML=s;
   el.querySelectorAll('.dot').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
-  const order=items.slice().sort((a,b)=>a.b.med-b.b.med);
-  let h=`<thead><tr><th>caller</th><th class="num">n</th><th class="num">median</th><th class="num">mean</th><th class="num">p25</th><th class="num">p75</th><th class="num">min</th><th class="num">max</th></tr></thead><tbody>`;
-  order.forEach(d=>{const b=d.b,lbl=d.c=='mitohpc'?`<span class="tag ref">${d.c}</span>`:d.c;
-    h+=`<tr><td>${lbl}</td><td class="num">${b.n}</td><td class="num">${b.med}s</td><td class="num">${b.mean}s</td><td class="num">${b.q1}s</td><td class="num">${b.q3}s</td><td class="num">${b.min}s</td><td class="num">${b.max}s</td></tr>`;});
+  // per-depth median table (selected arm): caller × depth, fastest overall first
+  const order=items.slice().sort((a,b)=>a.b.med-b.b.med).map(x=>x.c);
+  let h=`<thead><tr><th>caller</th>`+D.depths.map(d=>`<th class="num">${d}×</th>`).join('')+`<th class="num">all</th></tr></thead><tbody>`;
+  order.forEach(c=>{const lbl=c=='mitohpc'?`<span class="tag ref">${c}</span>`:c;
+    h+=`<tr><td>${lbl}</td>`+D.depths.map(d=>{const b=rtbox(sel.arm,d,c);
+      return `<td class="num">${b?b.med+'s':'—'}</td>`;}).join('')+
+      (()=>{const b=rtbox(sel.arm,'all',c);return `<td class="num">${b?b.med+'s':'—'}</td>`;})()+`</tr>`;});
   h+=`</tbody>`;tbl.innerHTML=h;
+}
+
+function drawRuntimeDepth(){
+  const el=document.getElementById('runtime-depth');
+  const dps=D.depths; if(!dps.length){el.innerHTML='';return;}
+  const W=820,H=300,L=56,R=110,T=12,B=40;
+  const xs=dps; const X=i=>L+(W-L-R)*(dps.length>1?i/(dps.length-1):0.5);
+  let mx=0; D.callers.forEach(c=>dps.forEach(d=>{const b=rtbox(sel.arm,d,c);if(b)mx=Math.max(mx,b.med);})); mx=Math.max(1,mx);
+  const Y=v=>H-B-(H-T-B)*(v/mx);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for(let i=0;i<=4;i++){const gy=Y(mx*i/4);s+=`<line class="gl" x1="${L}" y1="${gy}" x2="${W-R}" y2="${gy}"/>`;
+    s+=`<text x="${L-6}" y="${gy+3}" text-anchor="end" fill="#9aa4b2">${Math.round(mx*i/4)}s</text>`;}
+  dps.forEach((d,i)=>s+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" fill="#9aa4b2">${d}×</text>`);
+  s+=`<text x="${(L+W-R)/2}" y="${H-0}" text-anchor="middle" fill="#9aa4b2">simulated depth</text>`;
+  D.callers.forEach(c=>{
+    const pts=dps.map((d,i)=>({i,b:rtbox(sel.arm,d,c)})).filter(p=>p.b);
+    if(!pts.length)return; const cc=col(c);
+    s+=`<path d="${pts.map((p,j)=>`${j?'L':'M'}${X(p.i)},${Y(p.b.med)}`).join(' ')}" fill="none" stroke="${cc}" stroke-width="2"/>`;
+    pts.forEach(p=>s+=`<circle class="dot" cx="${X(p.i)}" cy="${Y(p.b.med)}" r="3" fill="${cc}" data-t="${encodeURIComponent(`<b>${c}</b> @ ${dps[p.i]}×<br>median ${p.b.med}s (n=${p.b.n})`)}"/>`);
+    const last=pts[pts.length-1]; s+=`<text x="${X(last.i)+6}" y="${Y(last.b.med)+3}" fill="${cc}">${c}</text>`;
+  });
+  s+=`</svg>`;el.innerHTML=s;
+  el.querySelectorAll('.dot').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
 }
 
 function drawArmCmp(){

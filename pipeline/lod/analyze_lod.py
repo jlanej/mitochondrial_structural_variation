@@ -30,7 +30,7 @@ CELL_COLS = ["arm", "caller", "variant", "depth", "vaf", "det_k", "det_n",
 FIT_COLS = ["arm", "caller", "variant", "depth", "n_levels", "n_reps",
             "emp_transition", "emp_reliable", "near_separable",
             "lod50", "lod95", "lod95_lo", "lod95_hi"]
-RT_COLS = ["arm", "caller", "n", "mean_s", "median_s", "p25_s", "p75_s",
+RT_COLS = ["arm", "caller", "depth", "n", "mean_s", "median_s", "p25_s", "p75_s",
            "min_s", "max_s", "total_s"]
 
 
@@ -118,39 +118,48 @@ def main(argv=None):
                         1 if near_sep else 0,
                         _fmt(lod50), _fmt(lod95), _fmt(lo95), _fmt(hi95)])
 
-    # ---- runtime summary per (arm,caller) + per (all,caller) ----------------
-    rt_by = defaultdict(list)          # (arm,caller) -> [runtime_s]
-    rt_all = defaultdict(list)         # caller -> [runtime_s] across arms
+    # ---- runtime summary, broken down by depth (how depth warps runtime) -----
+    # Keys: (arm, depth) where arm in {all,pipeline,circular} and depth in
+    # {all, <value>}. The (all,<depth>) rows are the headline "depth warps runtime"
+    # story; (all,all) is the overall per-caller number.
+    rt = defaultdict(list)             # (arm, depth, caller) -> [runtime_s]
     for r in rows:
-        rt = _f(r.get("runtime_s"))
-        if rt is None or r.get("status") != "ok":
+        s = _f(r.get("runtime_s"))
+        if s is None or r.get("status") != "ok":
             continue
-        rt_by[(r["arm"], r["caller"])].append(rt)
-        rt_all[r["caller"]].append(rt)
+        c, arm = r["caller"], r["arm"]
+        try:
+            dp = int(r["depth"])
+        except (KeyError, ValueError):
+            dp = None
+        for a in ("all", arm):
+            for d in ("all", dp):
+                if d is None:
+                    continue
+                rt[(a, d, c)].append(s)
 
-    def _rt_row(arm, caller, vals):
+    def _rt_row(arm, depth, caller, vals):
         b = S.boxstats(vals)
         if not b:
             return None
-        return [arm, caller, b["n"], _fmt(b["mean"]), _fmt(b["med"]),
+        return [arm, caller, depth, b["n"], _fmt(b["mean"]), _fmt(b["med"]),
                 _fmt(b["q1"]), _fmt(b["q3"]), _fmt(b["min"]), _fmt(b["max"]),
                 _fmt(sum(vals))]
+
+    def _depth_key(d):
+        return (0, 0) if d == "all" else (1, int(d))
 
     with open(os.path.join(args.outdir, "lod_runtime.tsv"), "w", newline="") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(RT_COLS)
-        for caller in sorted(rt_all):
-            row = _rt_row("all", caller, rt_all[caller])
-            if row:
-                w.writerow(row)
-        for (arm, caller) in sorted(rt_by):
-            row = _rt_row(arm, caller, rt_by[(arm, caller)])
+        for (arm, depth, caller) in sorted(rt, key=lambda k: (k[0], _depth_key(k[1]), k[2])):
+            row = _rt_row(arm, depth, caller, rt[(arm, depth, caller)])
             if row:
                 w.writerow(row)
 
     sys.stderr.write("[analyze_lod] %d cells, %d (caller,depth) fits, "
                      "%d runtime groups -> %s\n"
-                     % (len(cells), len(groups), len(rt_all) + len(rt_by), args.outdir))
+                     % (len(cells), len(groups), len(rt), args.outdir))
     return 0
 
 

@@ -18,7 +18,7 @@ log() { printf '[run_cell %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 PY() { micromamba run -n mitosv python "$@"; }
 
 VARIANT="" BP5="" BP3="" VAF="" DEPTH="" REP="" OUTDIR="" SHARD="" THREADS=4
-ARMS="pipeline,circular" CALLERS="all" KEEP=0
+ARMS="pipeline,circular" CALLERS="all" KEEP=0 PROGRESS=""
 while [[ $# -gt 0 ]]; do case "$1" in
     --variant) VARIANT="$2"; shift 2;;
     --bp5) BP5="$2"; shift 2;;
@@ -31,6 +31,7 @@ while [[ $# -gt 0 ]]; do case "$1" in
     --threads) THREADS="$2"; shift 2;;
     --arms) ARMS="$2"; shift 2;;
     --callers) CALLERS="$2"; shift 2;;
+    --progress) PROGRESS="$2"; shift 2;;
     --keep) KEEP=1; shift;;
     *) log "unknown arg: $1"; exit 2;;
 esac; done
@@ -41,20 +42,34 @@ vtag="$(printf '%s' "$VAF" | tr '.' 'p')"
 cell="${VARIANT}_v${vtag}_d${DEPTH}_r${REP}"
 work="$OUTDIR/$cell"
 mkdir -p "$work" "$(dirname "$SHARD")"
+t_cell=$SECONDS
+
+# Progress beacon: write "<start_epoch> <phase>" so the array task's heartbeat can
+# show which cell is in which phase and for how long (= hang detection).
+phase() { [[ -n "$PROGRESS" ]] && printf '%s\t%s\t%s\n' "$(date +%s)" "$cell" "$1" > "$PROGRESS/$cell.run" || true; }
+# Per-(arm,caller) seconds from a run_sample status.tsv -> one compact log line.
+timings() {  # <arm> <status.tsv>
+    [[ -f "$2" ]] || return 0
+    local line; line="$(awk -F'\t' 'NR>1{printf "%s=%ss ", $1, $3} END{print ""}' "$2")"
+    log "TIMING $cell $1: $line"
+}
 log "cell=$cell arms=$ARMS threads=$THREADS"
 
 # 1. generate
+phase "gen"
 gen="$work/gen"
 if ! PY "$PIPE/lod/gen_cell.py" --variant "$VARIANT" --bp5 "$BP5" --bp3 "$BP3" \
         --vaf "$VAF" --depth "$DEPTH" --rep "$REP" --out "$gen" --threads "$THREADS"; then
-    log "ERROR: generation failed for $cell"; exit 1
+    log "ERROR: generation failed for $cell"; [[ -n "$PROGRESS" ]] && rm -f "$PROGRESS/$cell.run"; exit 1
 fi
 bam="$gen/cell.bam"; r1="$gen/cell.r1.fastq.gz"; r2="$gen/cell.r2.fastq.gz"
 truth="$gen/truth.tsv"
 
-# 2 + 3. arms
+# 2 + 3. arms — score then immediately drop the heavy intermediates (the sweep is
+# large; only the tiny shard rows must survive, so don't let outputs accumulate).
 IFS=',' read -ra ARMA <<< "$ARMS"
 for arm in "${ARMA[@]}"; do
+    phase "$arm"
     adir="$work/$arm"
     if [[ "$arm" == "pipeline" ]]; then
         bash "$PIPE/run_sample.sh" --input "$bam" --sample "$cell" \
@@ -65,9 +80,17 @@ for arm in "${ARMA[@]}"; do
     else
         log "unknown arm: $arm"; continue
     fi
+    timings "$arm" "$adir/status.tsv"
     PY "$PIPE/lod/score_cell.py" --sample-dir "$adir" --truth "$truth" \
         --arm "$arm" --sample "$cell" --out "$SHARD" || log "scoring failed for $arm"
+    [[ "$KEEP" == 1 ]] || rm -rf "$adir" "$work/${arm}.log"   # done with this arm
 done
 
-[[ "$KEEP" == 1 ]] || rm -rf "$work"
+[[ "$KEEP" == 1 ]] || rm -rf "$gen" "$work"                  # generated BAM/FASTQ no longer needed
+dt=$((SECONDS - t_cell))
+if [[ -n "$PROGRESS" ]]; then
+    printf '%s\t%s\t%s\t%s\t%s\n' "$cell" "$DEPTH" "$VAF" "$REP" "$dt" >> "$PROGRESS/cells.done"
+    rm -f "$PROGRESS/$cell.run"
+fi
+log "done $cell in ${dt}s -> shard $SHARD"
 log "done $cell -> shard $SHARD"

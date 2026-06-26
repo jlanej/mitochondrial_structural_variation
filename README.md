@@ -245,19 +245,29 @@ replicate)` it simulates a chrM BAM carrying that deletion at that VAF/depth
 injective per-cell seed), runs all callers under **two input arms** — `pipeline`
 (bwa-mem normalization, production behaviour) and `circular` (MitoHPC's
 `minimap2 + circSam.pl` circular-aware BAM) — and scores detection (a call within
-**30 bp** summed breakpoint error). Each SLURM array task processes a chunk of
-cells across 24 threads, so the scheduler isn't flooded (full grid ≈ 4200 cells →
-~140 tasks). A dependent job aggregates the sweep:
+**30 bp** summed breakpoint error). The default grid is **10 heteroplasmies × 4
+depths (250–2000×) × 10 replicates × 2 deletions = 800 cells**; heteroplasmy is
+dense at the low end (where the LOD lives) and depth tops out at a real-world
+2000× to expose how depth warps runtime. Each SLURM array task runs a chunk of
+cells (default 12) concurrently across its 24 cores — `--cpus-per-task 24`,
+`THREADS/TPC = 24/2 = 12` cells at once — so 800 cells fan out to ~67 unthrottled
+tasks. The manifest is **depth-interleaved** so every task carries a balanced mix
+of cheap 250× and expensive 2000× cells. A background **heartbeat** logs each
+task's `done/total` plus every active cell's elapsed time, phase, and finished
+callers (so a hung cell/caller is obvious), and heavy intermediates are deleted
+the moment a cell is scored. A dependent job aggregates the sweep:
 
 * per `(caller, depth, deletion, arm)`: a detection-probability curve over
   heteroplasmy → **LOD50 / LOD95** (Firth-penalized logistic, separation-robust;
   pure-Python, no scipy) with Wilson + cluster-bootstrap CIs and an empirical
   transition read-out;
 * a **runtime summary** (`lod_runtime.tsv`) — per-cell wall-clock distribution
-  per caller (and per arm): n, mean, median, p25/p75, min/max, total seconds;
+  **broken down by depth** (and per arm): n, mean, median, p25/p75, min/max,
+  total seconds, so the depth→cost scaling is explicit;
 * an interactive **`lod_report/index.html`** — methods, per-caller LOD curves,
   detection heatmap, an LOD summary table, **runtime box-and-whisker plots + a
-  table**, pipeline-vs-circular comparison, and an interpretation guide.
+  runtime-vs-depth chart and per-depth table**, pipeline-vs-circular comparison,
+  and an interpretation guide.
 
 All callers (including the MitoHPC reference) run in the **same image, env, and
 node**, each timed identically by `run_sample.sh` (`t0=$SECONDS … $((SECONDS-t0))`),

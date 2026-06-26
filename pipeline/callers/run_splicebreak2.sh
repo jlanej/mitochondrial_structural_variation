@@ -33,7 +33,14 @@ r2_abs="$(readlink -f "$R2")"
 sbsrc=/opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END
 sbwork="$out_abs/sb_install"
 rm -rf "$sbwork"
-cp -a "$sbsrc" "$sbwork"
+# The driver needs a WRITABLE SB_Path but only ever CREATES files in it (its
+# fresh temp.log; everything else under SB_Path is read-only binaries/reference).
+# So hard-link the 136 MB install (`cp -al`) instead of byte-copying it — instant
+# and ~zero extra space, which matters hugely under the LOD sweep (Splice-Break2
+# runs thousands of times). `cp -al` falls back to a real copy across filesystems;
+# drop any hard-linked temp.log so an append can never reach the shared install.
+cp -al "$sbsrc" "$sbwork" 2>/dev/null || cp -a "$sbsrc" "$sbwork"
+rm -f "$sbwork/temp.log"
 SB_PATH="$(readlink -f "$sbwork")"
 
 indir="$out_abs/in"; sbout="$out_abs/out"; sblog="$out_abs/log"
