@@ -135,6 +135,31 @@ def test_mitohpc():
     assert parsers.is_common_deletion(r["bp5"], r["bp3"])
 
 
+def test_mitohpc_pass_only_drops_non_pass():
+    # MitoHPC is detect-and-flag: a .sv.tab can hold a confirmed PASS call alongside rejected
+    # candidates (e.g. an everted tandem-dup junction with no coverage drop). The scenario eval
+    # passes pass_only=True to count only PASS rows; the LOD path leaves it False to keep the raw
+    # table (its detected-vs-passed tracking). See parse_mitohpc / postprocess.py.
+    header = ("sample\tchrom\tpos_bp5\tend_bp3\tsvlen\tsvclaim\tjr\tsr\taf_junction\t"
+              "af_coverage\tafdiff\tcvgr\tflank_dp\thomlen\thomseq\tdelclass\tcommon\t"
+              "ngene\tgene_list\thgvs\tfilter\tflags\tsrcons\tsrsb\tjsup\tsvconf\t"
+              "svimpact\tsvimpact_band")
+    pass_row = ("s\tchrM\t8482\t13446\t4964\tDJ\t154\t401\t0.277\t0.268\t0.010\t0.732\t"
+                "575\t13\tACCTCCCTCACCA\tI\t1\t12\tATP8:P\tNC_012920.1:m.8483_13446del\t"
+                "PASS\tREPEAT\t1.000\t0.496\tHIGH\t83\t85\tSEVERE")
+    rej_row = ("s\tchrM\t6108\t6959\t851\tJ\t30\t100\t0.182\t0.000\t0.0\t1.0\t"
+               "500\t0\t.\t.\t0\t0\t.\t.\tno_cvg_drop;low_dosage\t.\t1.0\t0.5\tMOD\t.\t.\tMODERATE")
+    path = _tmp(header + "\n" + pass_row + "\n" + rej_row + "\n")
+    try:
+        assert len(parsers.parse_mitohpc(path)) == 2                   # default raw (LOD): both rows
+        recs = parsers.parse_mitohpc(path, pass_only=True)             # scenario eval: PASS only
+        assert len(recs) == 1
+        assert recs[0]["bp5"] == 8482 and recs[0]["bp3"] == 13446
+        assert "filter=PASS" in recs[0]["extra"]
+    finally:
+        os.unlink(path)
+
+
 def test_mitohpc_first_in_callers():
     assert parsers.CALLERS[0] == "mitohpc" and len(parsers.CALLERS) == 6
 
