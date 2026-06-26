@@ -284,10 +284,12 @@ button.f.tab{font-weight:600}
   <div class="cards" id="cards"></div>
 
   <h2>Runtime per caller</h2>
-  <p class="legend">Wall-clock seconds per sample across the cohort (successful runs) — box = IQR,
-    line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers. Hover the box for detail.
+  <p class="legend">Wall-clock seconds per sample across the cohort (successful runs).
+    <b>bars</b> = median per caller; <b>box-and-whisker</b> = the full distribution
+    (box = IQR, line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers).
     Relative, not absolute: the CI cohort runs several samples concurrently, so these reflect load;
     the LOD sweep is the isolated per-method timing.</p>
+  <div class="controls" id="runtime-toggle"></div>
   <div class="panel"><div id="chart-runtime"></div></div>
   <div class="panel" style="overflow:auto;margin-top:10px"><table id="runtime-table"></table></div>
 
@@ -408,7 +410,23 @@ function boxChart(id, items){
   s+=`</svg>`;el.innerHTML=s;
   el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
 }
-boxChart('chart-runtime', CAL.map(c=>({label:c, color:col(c), b:D.runtime[c].box})));
+// ---- runtime chart: bars (default) <-> box-and-whisker toggle ----
+let rtMode='bar';
+function renderRuntime(){
+  if(rtMode==='box'){
+    boxChart('chart-runtime', CAL.map(c=>({label:c, color:col(c), b:D.runtime[c].box})));
+  }else{
+    const items=CAL.map(c=>({c,b:D.runtime[c].box})).filter(x=>x.b).sort((a,b)=>a.b.med-b.b.med);
+    barChart('chart-runtime', items.map(d=>({label:d.c, v:d.b.med, color:col(d.c), vlabel:d.b.med,
+      tip:`<b>${d.c}</b><br>median ${d.b.med}s · mean ${d.b.mean}s<br>IQR ${d.b.q1}–${d.b.q3}s · range ${d.b.min}–${d.b.max}s<br>n=${d.b.n}, total ${D.runtime[d.c].total}s`})), 's');
+  }
+}
+const rtt=document.getElementById('runtime-toggle');
+[['bar','bars (median)'],['box','box-and-whisker']].forEach(([k,lab])=>{
+  const b=document.createElement('button');b.className='f'+(k===rtMode?' on':'');b.textContent=lab;
+  b.onclick=()=>{rtMode=k;rtt.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');renderRuntime();};rtt.appendChild(b);});
+renderRuntime();
 // runtime summary table (fastest median first)
 (function(){
   const rows=CAL.map(c=>({c,b:D.runtime[c].box})).filter(x=>x.b).sort((a,b)=>a.b.med-b.b.med);
