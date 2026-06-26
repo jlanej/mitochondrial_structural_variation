@@ -1,5 +1,0 @@
-[mitohpc 22:22:53] running MitoHPC callSV on sv_del_13kb
-[callsv] sv_del_13kb -> /out/sv_del_13kb/mitohpc/sv_del_13kb.sv.vcf (2 records)
-[callSV] sv_del_13kb -> /out/sv_del_13kb/mitohpc/sv_del_13kb.sv.vcf (2 records)
-[mitohpc 22:22:55] calls -> mitohpc.sv.tab
-[mitohpc 22:22:55] done

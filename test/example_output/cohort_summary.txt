@@ -1,40 +1,16 @@
 Mitochondrial SV cohort summary
 ========================================
-samples: 26
-total calls (all types): 18660
+samples: 2
+total calls (all types): 160
 
 deletion calls per caller:
-  mitohpc        52
-  eklipse        18
-  mitosalt       14
-  splicebreak2   13
-  mitomut        20
-  mitoseek       18538
+  mitohpc        2
+  eklipse        2
+  mitosalt       2
+  splicebreak2   2
+  mitomut        2
+  mitoseek       150
 
 common (~4977 bp) deletion detection per sample:
-  NA12718                  (none)
-  NA12748                  (none)
-  NA12775                  (none)
-  spike_del4977_h20        eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
-  sv_del4977_h05           eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
   sv_del4977_h30           eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
   sv_del4977_h30_cram      eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
-  sv_del6000_h50           (none)
-  sv_del_13kb              (none)
-  sv_del_45                (none)
-  sv_del_500               (none)
-  sv_del_origin_spares     (none)
-  sv_dloop                 (none)
-  sv_dup                   (none)
-  sv_dup_large             (none)
-  sv_dupdel                (none)
-  sv_homoplasmy            eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
-  sv_inv_large             (none)
-  sv_inv_lowhet            (none)
-  sv_inv_origin            (none)
-  sv_inv_small             (none)
-  sv_invdup                (none)
-  sv_lowcov                eklipse, mitohpc, mitomut, mitosalt, splicebreak2
-  sv_multidel              eklipse, mitohpc, mitomut, mitosalt, mitoseek, splicebreak2
-  sv_origin                (none)
-  sv_wt                    (none)

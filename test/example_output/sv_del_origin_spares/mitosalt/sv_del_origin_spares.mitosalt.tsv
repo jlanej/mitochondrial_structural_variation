@@ -1,2 +1,0 @@
-sample	cluster.id	alt.reads	ref.reads	heteroplasmy	del.start.range	del.end.range	del.size	final.event	final.start	final.end	final.size	seq1	seq2	seq
-indel/sv_del_origin_spares	cluster11	209	342	37.9310	16400 - 16400	99 - 99	268	dup	100	16400	16301	AGCATTGCGAGACGCT*GGAGCCGGAGCACCC	ATAGGGGTCCCTTGAC*CACCATCCTCCGTGA	NA
