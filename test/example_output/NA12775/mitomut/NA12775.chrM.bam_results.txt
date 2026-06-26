@@ -1,0 +1,2 @@
+Total Reads	S1 Reads	S2 Reads	Start	End	Heteroplasmy Level
+6	6	0	15882	16220	0.002433127861227976

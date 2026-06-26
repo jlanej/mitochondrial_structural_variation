@@ -25,67 +25,67 @@ Evaluation only — how each third-party caller behaves on the diverse MitoHPC t
 
 | caller | sensitivity | specificity | precision | F1 | bal.acc | MCC | FP |
 |--------|:-----------:|:-----------:|:---------:|:--:|:-------:|:---:|:--:|
-| mitohpc | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
-| eklipse | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
-| mitosalt | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
-| splicebreak2 | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
-| mitomut | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
-| mitoseek | 17% (2/12) | 100% (11/11) | 100% | 0.29 | 58% | 0.30 | 0 |
+| splicebreak2 | 100% (12/12) | 100% (11/11) | 100% | 1.00 | 100% | 1.00 | 0 |
+| mitohpc | 92% (11/12) | 91% (10/11) | 92% | 0.92 | 91% | 0.83 | 1 |
+| eklipse | 100% (12/12) | 82% (9/11) | 86% | 0.92 | 91% | 0.84 | 2 |
+| mitosalt | 83% (10/12) | 82% (9/11) | 83% | 0.83 | 83% | 0.65 | 2 |
+| mitomut | 92% (11/12) | 73% (8/11) | 79% | 0.85 | 82% | 0.66 | 3 |
+| mitoseek | 92% (11/12) | 0% (0/11) | 50% | 0.65 | 46% | -0.20 | 11 |
 
 ### Deletions
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_del4977_h05 | del 8469–13447 · COMMON | · | · | · | · | · | · |
+| sv_del4977_h05 | del 8469–13447 · COMMON | · | detected | detected | detected | detected | detected |
 | sv_del4977_h30 | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | detected |
-| sv_del6000_h50 | del 5999–10999 | · | · | · | · | · | · |
-| sv_del_13kb | del 2000–15001 | · | · | · | · | · | · |
-| sv_del_45 | del 9000–9046 | · | · | · | · | · | · |
-| sv_del_500 | del 8000–8501 | · | · | · | · | · | · |
-| sv_dloop | del 400–6000 | · | · | · | · | · | · |
-| sv_homoplasmy | del 8469–13447 · COMMON | · | · | · | · | · | · |
-| sv_lowcov | del 8469–13447 · COMMON | · | · | · | · | · | · |
-| sv_multidel | del 8469–13447 · COMMON | · | · | · | · | · | · |
-| sv_multidel | del 5999–10999 | · | · | · | · | · | · |
+| sv_del6000_h50 | del 5999–10999 | detected | detected | detected | detected | detected | detected |
+| sv_del_13kb | del 2000–15001 | detected | detected | · | detected | · | detected |
+| sv_del_45 | del 9000–9046 | · | sub | sub | · | sub | · |
+| sv_del_500 | del 8000–8501 | detected | detected | detected | detected | detected | detected |
+| sv_dloop | del 400–6000 | detected | detected | · | detected | detected | detected |
+| sv_homoplasmy | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | detected |
+| sv_lowcov | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | · |
+| sv_multidel | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | detected |
+| sv_multidel | del 5999–10999 | detected | detected | detected | detected | detected | detected |
 | sv_del4977_h30_cram | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | detected |
-| spike_del4977_h20 | del 8469–13447 · COMMON | · | · | · | · | · | · |
+| spike_del4977_h20 | del 8469–13447 · COMMON | detected | detected | detected | detected | detected | detected |
 
 ### Controls
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_wt | wild-type (no SV) | · | · | · | · | · | · |
-| NA12718 | wild-type (no SV) | · | · | · | · | · | · |
-| NA12748 | wild-type (no SV) | · | · | · | · | · | · |
-| NA12775 | wild-type (no SV) | · | · | · | · | · | · |
+| sv_wt | wild-type (no SV) | · | · | · | · | · | FP |
+| NA12718 | wild-type (no SV) | FP | · | · | · | · | FP |
+| NA12748 | wild-type (no SV) | · | · | · | · | · | FP |
+| NA12775 | wild-type (no SV) | · | · | · | · | FP | FP |
 
 ### Duplications *(evaluation-only / forward-looking)*
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_dup | dup (no deletion) | · | · | · | · | · | · |
-| sv_dup_large | dup (no deletion) | · | · | · | · | · | · |
+| sv_dup | dup (no deletion) | · | FP | FP | · | FP | FP |
+| sv_dup_large | dup (no deletion) | · | FP | FP | · | FP | FP |
 
 ### Inversions *(evaluation-only / forward-looking)*
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_inv_large | inv (no deletion) | · | · | · | · | · | · |
-| sv_inv_lowhet | inv (no deletion) | · | · | · | · | · | · |
-| sv_inv_origin | inv (no deletion) | · | · | · | · | · | · |
-| sv_inv_small | inv (no deletion) | · | · | · | · | · | · |
+| sv_inv_large | inv (no deletion) | · | · | · | · | · | FP |
+| sv_inv_lowhet | inv (no deletion) | · | · | · | · | · | FP |
+| sv_inv_origin | inv (no deletion) | · | · | · | · | · | FP |
+| sv_inv_small | inv (no deletion) | · | · | · | · | · | FP |
 
 ### Origin-crossing *(evaluation-only / forward-looking)*
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_del_origin_spares | delwrap 16400–100 | · | · | · | · | · | · |
+| sv_del_origin_spares | delwrap 16400–100 | · | wrap | · | · | · | · |
 | sv_origin | delwrap 16400–200 | · | · | · | · | · | · |
 
 ### Complex *(evaluation-only / forward-looking)*
 
 | sample | truth event | mitohpc | eklipse | mitosalt | splicebreak2 | mitomut | mitoseek |
 |--------|-------------|--|--|--|--|--|--|
-| sv_dupdel | dupdel (no deletion) | · | · | · | · | · | · |
-| sv_invdup | invdup (no deletion) | · | · | · | · | · | · |
+| sv_dupdel | dupdel (no deletion) | knownfp | knownfp | knownfp | knownfp | knownfp | knownfp |
+| sv_invdup | invdup (no deletion) | · | · | · | · | · | FP |
 

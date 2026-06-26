@@ -1,0 +1,5 @@
+[mitohpc 03:43:54] running MitoHPC callSV on sv_inv_lowhet
+[callsv] sv_inv_lowhet -> /out/sv_inv_lowhet/mitohpc/sv_inv_lowhet.sv.vcf (1 records)
+[callSV] sv_inv_lowhet -> /out/sv_inv_lowhet/mitohpc/sv_inv_lowhet.sv.vcf (1 records)
+[mitohpc 03:43:55] calls -> mitohpc.sv.tab
+[mitohpc 03:43:55] done

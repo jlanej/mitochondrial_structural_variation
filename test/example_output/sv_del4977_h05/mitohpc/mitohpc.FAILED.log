@@ -1,0 +1,5 @@
+[mitohpc 03:34:47] running MitoHPC callSV on sv_del4977_h05
+[callsv] sv_del4977_h05 -> /out/sv_del4977_h05/mitohpc/sv_del4977_h05.sv.vcf (2 records)
+[callSV] sv_del4977_h05 -> /out/sv_del4977_h05/mitohpc/sv_del4977_h05.sv.vcf (2 records)
+[mitohpc 03:34:48] calls -> mitohpc.sv.tab
+[mitohpc 03:34:48] done
