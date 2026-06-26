@@ -281,13 +281,27 @@ def parse_mitoseek_large_deletion(path, sample=None, min_tlen=500, min_support=3
 # --------------------------------------------------------------------------- #
 # MitoHPC — <sample>.sv.tab  (tab, header row; the reference caller)
 # --------------------------------------------------------------------------- #
-def parse_mitohpc(path, sample=None):
+def parse_mitohpc(path, sample=None, pass_only=False):
+    """MitoHPC is a detect-AND-flag caller: its .sv.tab lists every junction it inspects, with the
+    FILTER column separating confirmed calls (PASS) from flagged/rejected candidates (no_cvg_drop,
+    low_dosage, DLOOP, HP, NUMT, WRAP, ...). Unlike the other callers — whose output file is already
+    the final call set — a non-PASS MitoHPC row is NOT a call; it is an explicit rejection (e.g. an
+    everted tandem-dup junction that has no coverage drop, which would otherwise score as a false
+    deletion in the binary-detector accuracy table).
+
+    Default is the RAW table (pass_only=False) so the LOD scorer can keep its raw-detection vs
+    FILTER==PASS dual tracking (see lod/score_cell.py). The scenario accuracy evaluation passes
+    pass_only=True (via parse_sample_dir, from postprocess.py) to honour the standard VCF FILTER
+    semantic and count only PASS rows as calls."""
     out = []
     if not path or not os.path.isfile(path):
         return out
     with open(path, newline="") as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for row in reader:
+            filt = (row.get("filter") or "").strip()
+            if pass_only and filt and filt != "PASS":
+                continue  # detect-and-flag diagnostic, not a call
             bp5 = _to_int(row.get("pos_bp5"))
             bp3 = _to_int(row.get("end_bp3"))
             svlen = _to_int(row.get("svlen"))
@@ -298,7 +312,6 @@ def parse_mitohpc(path, sample=None):
                 het = _to_float(row.get("af_junction"))
             support = _to_float(row.get("jr"))      # junction-supporting reads
             smp = sample or (row.get("sample") or "").strip() or "unknown"
-            filt = (row.get("filter") or "").strip()
             flags = (row.get("flags") or "").strip()
             out.append(_rec(smp, "mitohpc", "deletion", bp5, bp3, svlen,
                             support, het,
@@ -318,14 +331,16 @@ def _first(globs):
     return None
 
 
-def parse_sample_dir(sample_dir, sample=None):
-    """Parse every caller's output found under one sample directory."""
+def parse_sample_dir(sample_dir, sample=None, pass_only=False):
+    """Parse every caller's output found under one sample directory. pass_only forwards to
+    parse_mitohpc: the scenario accuracy eval (postprocess.py) sets it True to count only PASS
+    MitoHPC rows; the LOD scorer leaves it False to keep raw-detection vs PASS dual tracking."""
     sample = sample or os.path.basename(os.path.normpath(sample_dir))
     records = []
 
     mh = _first([os.path.join(sample_dir, "mitohpc", "mitohpc.sv.tab"),
                  os.path.join(sample_dir, "mitohpc", "*.sv.tab")])
-    records += parse_mitohpc(mh, sample)
+    records += parse_mitohpc(mh, sample, pass_only=pass_only)
 
     ek = _first([os.path.join(sample_dir, "eklipse", "eKLIPse_deletions.csv")])
     records += parse_eklipse(ek, sample)

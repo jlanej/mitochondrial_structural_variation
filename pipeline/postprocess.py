@@ -184,7 +184,10 @@ def main(argv=None):
             os.path.basename(os.path.normpath(sd))
         samples.append(name)
         sample_pairs.append((name, sd))
-        recs = parsers.parse_sample_dir(sd, name)
+        # pass_only=True: count only MitoHPC FILTER==PASS rows as calls (its non-PASS rows are
+        # detect-and-flag rejections, not calls — see parse_mitohpc). The LOD scorer keeps the raw
+        # table for its detected-vs-passed tracking; this is the scenario accuracy cohort only.
+        recs = parsers.parse_sample_dir(sd, name, pass_only=True)
         records.extend(recs)
         sys.stderr.write("postprocess: %s -> %d calls\n" % (name, len(recs)))
 
