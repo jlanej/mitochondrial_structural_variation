@@ -1,7 +1,7 @@
-[splicebreak2 18:04:44] running Splice-Break2 on sv_del4977_h30
-bash: /out/sv_del4977_h30/splicebreak2/sb_install/Splice-Break2_paired-end.sh: No such file or directory
-[splicebreak2 18:04:44] driver returned non-zero (rc=127)
------ Splice-Break2 under-the-hood diagnostics (sv_del4977_h30) -----
+[splicebreak2 18:07:04] running Splice-Break2 on sv_del_500
+bash: /out/sv_del_500/splicebreak2/sb_install/Splice-Break2_paired-end.sh: No such file or directory
+[splicebreak2 18:07:04] driver returned non-zero (rc=127)
+----- Splice-Break2 under-the-hood diagnostics (sv_del_500) -----
 driver clean exit    : 0 (rc=127)
 MapSplice junctions  : 0   (none; 0 => alignment/MapSplice produced none)
   del4977-like junc  : 0   (junction spanning ~8470..13447)
@@ -9,4 +9,4 @@ LAST inner stage     : ?   (where Splice-Break2_0725.sh stopped)
 inner steps_failed   : ?
 intermediates        : pileup=NA BaseCounts=NA Coverage=NA modifiedJunc=NA large_deletions=NA
 result file          : 0 bytes; LargeMTDeletions rows: 0
-[splicebreak2 18:04:44] WARNING: no LargeMTDeletions output produced (see diagnostics above)
+[splicebreak2 18:07:04] WARNING: no LargeMTDeletions output produced (see diagnostics above)
