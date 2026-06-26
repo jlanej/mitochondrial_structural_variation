@@ -40,16 +40,38 @@ SCOPE="${3:-${MITO_SV_SMOKE_SCOPE:-full}}"
 # or MITO_SV_SUITE.
 SUITE="${4:-${MITO_SV_SUITE:-all}}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT="$(mktemp -d)"
-trap 'rm -rf "$OUT" 2>/dev/null || sudo -n rm -rf "$OUT" 2>/dev/null || true' EXIT
 
 POS=sv_del4977_h30          # canonical positive control (common deletion @30%)
 WT=sv_wt                    # wild-type negative
 TRUTH="$REPO/test/data/truth.tsv"
+REALS=(spike_del4977_h20 NA12718 NA12748 NA12775)   # committed real 1000G + spike
 fail=0; warns=0
 note() { printf '\n=== %s ===\n' "$*"; }
 err()  { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; warns=$((warns+1)); }
+
+###############################################################################
+# Phase: full (default, one job) | shard (run a sample subset) | consolidate
+# (merge shard outputs). Matrix CI fans the cohort out across runner jobs:
+#   shard       MITO_SV_RUN_ONLY="s1 s2 …" MITO_SV_OUT=DIR [MITO_SV_RUN_EXTRAS=1]
+#               -> run ONLY those samples into DIR, skip post-processing/gates.
+#   consolidate MITO_SV_MERGED_OUT=DIR
+#               -> skip the container; post-process + gate + report the merged DIR.
+# Per-sample runs are independent (separate outdirs); sharding across JOBS (not
+# in-process on one runner) parallelizes safely without OOMing the heavy callers.
+###############################################################################
+SHARD="${MITO_SV_RUN_ONLY:-}"
+MERGED="${MITO_SV_MERGED_OUT:-}"
+EXTRAS="${MITO_SV_RUN_EXTRAS:-}"
+if [[ -n "$MERGED" ]]; then
+    PHASE=consolidate; OUT="$MERGED"
+elif [[ -n "$SHARD" ]]; then
+    PHASE=shard; OUT="${MITO_SV_OUT:?set MITO_SV_OUT for shard mode}"
+else
+    PHASE=full; OUT="$(mktemp -d)"
+    trap 'rm -rf "$OUT" 2>/dev/null || sudo -n rm -rf "$OUT" 2>/dev/null || true' EXIT
+fi
+mkdir -p "$OUT"
 
 # Mock BAM samples for the selected suite (del = only samples carrying a
 # deletion / wild-type event; all = every committed mock BAM).
@@ -65,94 +87,88 @@ select_bams() {
         fi
     done
 }
-mapfile -t MOCK_SAMPLES < <(select_bams)
+MOCK_SAMPLES=(); while IFS= read -r _s; do MOCK_SAMPLES+=("$_s"); done < <(select_bams)
 
-echo "image:   $IMAGE"
-echo "callers: $CALLERS"
-echo "scope:   $SCOPE"
-echo "suite:   $SUITE (${#MOCK_SAMPLES[@]} mock BAMs)"
-echo "out:     $OUT"
+# The full sample set this run evaluates (host-side), and which BAMs to RUN now.
+if [[ "$SCOPE" == quick ]]; then
+    SAMPLES=("$POS" "$WT" "${POS}_cram")
+else
+    SAMPLES=("${MOCK_SAMPLES[@]}" "${POS}_cram" "${REALS[@]}")
+fi
+if [[ "$PHASE" == shard ]]; then
+    read -ra RUN_SAMPLES <<< "$SHARD"
+    DO_CRAM=0; DO_DEGEN=0
+    [[ -n "$EXTRAS" ]] && { DO_CRAM=1; DO_DEGEN=1; }
+elif [[ "$SCOPE" == quick ]]; then
+    RUN_SAMPLES=("$POS" "$WT"); DO_CRAM=1; DO_DEGEN=0
+else
+    RUN_SAMPLES=("${MOCK_SAMPLES[@]}" "${REALS[@]}"); DO_CRAM=1; DO_DEGEN=1
+fi
+
+echo "image:$IMAGE  callers:$CALLERS  scope:$SCOPE  suite:$SUITE  phase:$PHASE"
+[[ "$PHASE" != consolidate ]] && echo "run (${#RUN_SAMPLES[@]} BAMs, cram=$DO_CRAM degen=$DO_DEGEN): ${RUN_SAMPLES[*]}"
+echo "out: $OUT"
 
 ###############################################################################
-# Run the whole cohort inside one container session.
+# Run the requested samples inside the image (skipped in consolidate phase).
 ###############################################################################
-note "running scenario cohort in container (scope=$SCOPE)"
+if [[ "$PHASE" != consolidate ]]; then
+note "running samples in container (phase=$PHASE)"
 docker run --rm \
     -v "$REPO/test/data:/data:ro" \
     -v "$OUT:/out" \
-    -e CALLERS="$CALLERS" -e SCOPE="$SCOPE" -e POS="$POS" \
-    -e SUITE_BAMS="${MOCK_SAMPLES[*]}" \
+    -e CALLERS="$CALLERS" -e POS="$POS" -e DO_CRAM="$DO_CRAM" -e DO_DEGEN="$DO_DEGEN" \
+    -e RUN_SAMPLES="${RUN_SAMPLES[*]}" \
     --entrypoint bash "$IMAGE" -lc '
 set -e
 trap "chmod -R a+rwX /out 2>/dev/null || true" EXIT
 RUN=/opt/pipeline/run_sample.sh
 SAM="micromamba run -n mitosv samtools"
-
-run_one() {  # <input> <sample>
-    "$RUN" --input "$1" --sample "$2" --outdir /out/"$2" \
-           --threads 2 --callers "$CALLERS" || true
+run_one() { "$RUN" --input "$1" --sample "$2" --outdir /out/"$2" --threads 2 --callers "$CALLERS" || true; }
+resolve() {  # sample name -> input BAM path (mock vs committed real)
+    case "$1" in
+        spike_del4977_h20|NA12718|NA12748|NA12775) echo /data/real/"$1".chrM.bam;;
+        *) echo /data/bams/"$1".bam;;
+    esac
 }
+for s in $RUN_SAMPLES; do run_one "$(resolve "$s")" "$s"; done
 
-if [ "$SCOPE" = quick ]; then
-    run_one /data/bams/'"$POS"'.bam "$POS"
-    run_one /data/bams/sv_wt.bam   sv_wt
-else
-    # Mock scenario BAMs for the suite (deletion-only or full). Run SERIALLY:
-    # several callers (Splice-Break2/MapSplice + bbmap, eKLIPse) are memory-hungry,
-    # so running samples concurrently on one shared runner OOM-kills them (it left
-    # the cohort with only the serial samples). To parallelize, fan out across
-    # runner JOBS (a matrix), not in-process on a single runner.
-    for s in $SUITE_BAMS; do
-        run_one /data/bams/"$s".bam "$s"
-    done
+if [ "$DO_CRAM" = 1 ]; then
+    # CRAM round-trip of the canonical positive (decoded offline via the seeded
+    # rCRS reference cache).
+    $SAM view -b -o /out/_pos.bam /data/bams/"$POS".bam; $SAM index /out/_pos.bam
+    $SAM view -C -T /opt/assets/rCRS.chrM.fa -o /out/"$POS".cram /out/_pos.bam; $SAM index /out/"$POS".cram
+    run_one /out/"$POS".cram "${POS}_cram"
 fi
 
-# CRAM round-trip of the canonical positive (CRAM input path; decoded offline
-# via the seeded rCRS reference cache).
-$SAM view -b -o /out/_pos.bam /data/bams/"$POS".bam
-$SAM index /out/_pos.bam
-$SAM view -C -T /opt/assets/rCRS.chrM.fa -o /out/"$POS".cram /out/_pos.bam
-$SAM index /out/"$POS".cram
-run_one /out/"$POS".cram "${POS}_cram"
-
-if [ "$SCOPE" != quick ]; then
-    # Real 1000G data: a del4977 spike-in (sensitivity) + healthy samples
-    # (specificity) — mirrors MitoHPC check_real.
-    run_one /data/real/spike_del4977_h20.chrM.bam spike_del4977_h20
-    run_one /data/real/NA12718.chrM.bam           NA12718
-    run_one /data/real/NA12748.chrM.bam           NA12748
-    run_one /data/real/NA12775.chrM.bam           NA12775
-
+if [ "$DO_DEGEN" = 1 ]; then
     # Degenerate inputs (robustness): must fail cleanly, never hang/traceback.
     : > /out/_degen.txt
-    # (a) wrong mito-contig name
     $SAM view -h /data/bams/sv_wt.bam | sed "s/SN:chrM/SN:chrZ/; s/\tchrM\t/\tchrZ\t/" \
         | $SAM view -b -o /out/_wrongcontig.bam -
     if "$RUN" --input /out/_wrongcontig.bam --sample degen_wrongcontig \
-              --outdir /out/_degen_wc --threads 2 --callers eklipse \
-              > /out/_degen_wc.log 2>&1; then rc=0; else rc=$?; fi
+              --outdir /out/_degen_wc --threads 2 --callers eklipse > /out/_degen_wc.log 2>&1; then rc=0; else rc=$?; fi
     echo "wrongcontig $rc" >> /out/_degen.txt
-    # (b) empty (header-only) BAM
     $SAM view -H /data/bams/sv_wt.bam | $SAM view -b -o /out/_empty.bam -
     if "$RUN" --input /out/_empty.bam --sample degen_empty \
-              --outdir /out/_degen_empty --threads 2 --callers eklipse \
-              > /out/_degen_empty.log 2>&1; then rc=0; else rc=$?; fi
+              --outdir /out/_degen_empty --threads 2 --callers eklipse > /out/_degen_empty.log 2>&1; then rc=0; else rc=$?; fi
     echo "empty $rc" >> /out/_degen.txt
 fi
-
-# Cohort consolidation.
-micromamba run -n mitosv python /opt/pipeline/postprocess.py --root /out
 ' || err "container session returned non-zero"
+fi
+
+# Shard phase: outputs are in $OUT for artifact upload — stop before consolidation.
+if [[ "$PHASE" == shard ]]; then
+    note "shard complete"
+    echo "$(find "$OUT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') sample dir(s) in $OUT"
+    [[ "$fail" == 0 ]] && exit 0 || exit 1
+fi
 
 ###############################################################################
-# Determine which samples actually ran (host side).
+# Post-process the (possibly merged) cohort — host-side, pure stdlib.
 ###############################################################################
-if [[ "$SCOPE" == quick ]]; then
-    SAMPLES=("$POS" "$WT" "${POS}_cram")
-else
-    SAMPLES=("${MOCK_SAMPLES[@]}" "${POS}_cram"
-             "spike_del4977_h20" "NA12718" "NA12748" "NA12775")
-fi
+note "post-processing cohort -> $OUT"
+python3 "$REPO/pipeline/postprocess.py" --root "$OUT" || err "postprocess failed"
 
 ###############################################################################
 # 1. Operating gate (HARD): every caller ran on the canonical positive.

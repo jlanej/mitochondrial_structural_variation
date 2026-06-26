@@ -146,9 +146,17 @@ mito_sv_out/
 Two workflows:
 
 * [`.github/workflows/docker-build.yml`](.github/workflows/docker-build.yml) —
-  builds the image, runs the **functional smoke test against every caller** on
-  the committed [test data](test/data), and (only if the smoke test passes, and
-  only on `main`/tags) publishes to GHCR.
+  builds + publishes the image and runs the **functional smoke test against every
+  caller** on the committed [test data](test/data). On `main`/tags the scenario
+  cohort is **fanned out across a matrix** of runner jobs: a planner
+  ([`test/plan_shards.py`](test/plan_shards.py)) splits the samples into balanced
+  shards (LPT bin-packing weighted by depth, so the deep real 1000G BAMs spread
+  out and the slow callers stay off any single shard's critical path), each shard
+  runs its subset serially on its own runner (no in-process concurrency → the
+  memory-hungry callers don't OOM each other), and a **consolidate** job merges
+  the shard outputs, post-processes, gates, and builds the report. PRs run a quick
+  single-job smoke. `smoke_test.sh` is phase-aware (`full` / `shard` /
+  `consolidate`) so all three reuse the same logic.
 * [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — fast checks on every
   push/PR: parser unit tests, shell + Python syntax, shellcheck.
 
@@ -304,7 +312,8 @@ test/
   test_check_scenarios.py  scenario-evaluator unit tests
   test_lod_stats.py        LOD statistics unit tests
   check_scenarios.py       truth-driven caller-comparison evaluator
-  smoke_test.sh            full functional CI (SUITE=all|del) against the image
+  smoke_test.sh            functional CI; phase-aware full | shard | consolidate
+  plan_shards.py           balance scenario samples into matrix shards (LPT)
   lod_smoke.sh             single-iteration LOD CI gate
   data/                    committed test BAMs + truth.tsv + scenarios.json
 docs/index.html            interactive caller-comparison report (CI-generated)
