@@ -30,17 +30,32 @@ out_abs="$(readlink -f "$OUTDIR")"
 r1_abs="$(readlink -f "$R1")"
 r2_abs="$(readlink -f "$R2")"
 
-sbsrc=/opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END
+sbsrc=/opt/Splice-Break2/Splice-Break2-v3.0.2_PAIRED-END   # absolute (cp -s needs it)
 sbwork="$out_abs/sb_install"
 rm -rf "$sbwork"
-# The driver needs a WRITABLE SB_Path but only ever CREATES files in it (its
-# fresh temp.log; everything else under SB_Path is read-only binaries/reference).
-# So hard-link the 136 MB install (`cp -al`) instead of byte-copying it — instant
-# and ~zero extra space, which matters hugely under the LOD sweep (Splice-Break2
-# runs thousands of times). `cp -al` falls back to a real copy across filesystems;
-# drop any hard-linked temp.log so an append can never reach the shared install.
-cp -al "$sbsrc" "$sbwork" 2>/dev/null || cp -a "$sbsrc" "$sbwork"
-rm -f "$sbwork/temp.log"
+# Stage a WRITABLE SB_Path without byte-copying the 136 MB install. The driver
+# needs SB_Path writable but only ever CREATES files in it (its fresh temp.log; it
+# reads scripts/refs/binaries and writes all real output to the separate out dir).
+# So build a SYMLINK FARM — a real, writable directory tree with every file
+# symlinked into the shared read-only image install (`cp -as`): instant, ~zero
+# extra space (it matters: the LOD sweep runs Splice-Break2 thousands of times),
+# reads resolve to the image, and any newly created file lands in a real writable
+# dir. Symlinks cross the image->bind-mount filesystem boundary; HARDLINKS do not
+# (/opt and the output dir are always different filesystems in the container, so
+# `cp -al` EXDEV-fails — and its partial dir then nests the copy fallback, leaving
+# the driver script missing => bash exit 127). `SB_STAGE=copy` forces a full real
+# copy. A structural check guarantees the driver is in place before we run it.
+if [[ "${SB_STAGE:-link}" == link ]] \
+        && cp -as "$sbsrc" "$sbwork" 2>/dev/null \
+        && find "$sbwork" -type d -exec chmod u+rwx {} +; then
+    :   # symlink farm staged
+else
+    log "staging Splice-Break2 install via full copy (SB_STAGE=${SB_STAGE:-link})"
+    rm -rf "$sbwork"; cp -a "$sbsrc" "$sbwork"
+fi
+rm -f "$sbwork/temp.log"   # always a fresh real file; never a link into the install
+[[ -f "$sbwork/Splice-Break2_paired-end.sh" ]] \
+    || { log "ERROR: Splice-Break2 install staging incomplete (no driver in $sbwork)"; exit 1; }
 SB_PATH="$(readlink -f "$sbwork")"
 
 indir="$out_abs/in"; sbout="$out_abs/out"; sblog="$out_abs/log"
