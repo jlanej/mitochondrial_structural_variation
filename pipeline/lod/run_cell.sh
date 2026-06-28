@@ -44,6 +44,15 @@ work="$OUTDIR/$cell"
 mkdir -p "$work" "$(dirname "$SHARD")"
 t_cell=$SECONDS
 
+# Per-cell micromamba cache. `micromamba run` registers every invocation under
+# $XDG_CACHE_HOME/mamba/proc behind a single lock; Apptainer binds the host $HOME
+# (one shared NFS home for the whole cluster), so WITHOUT this isolation every
+# concurrent cell's micromamba serializes on that one lock and cells stall for
+# minutes in 'gen' ("Could not set lock '$HOME/.cache/mamba/proc'"). A private
+# cache under the bound, writable work dir removes the contention entirely (it is
+# deleted with $work at the end of the cell).
+export XDG_CACHE_HOME="$work/.mambacache"; mkdir -p "$XDG_CACHE_HOME"
+
 # Progress beacon: write "<start_epoch> <phase>" so the array task's heartbeat can
 # show which cell is in which phase and for how long (= hang detection).
 phase() { [[ -n "$PROGRESS" ]] && printf '%s\t%s\t%s\n' "$(date +%s)" "$cell" "$1" > "$PROGRESS/$cell.run" || true; }
@@ -93,4 +102,3 @@ if [[ -n "$PROGRESS" ]]; then
     rm -f "$PROGRESS/$cell.run"
 fi
 log "done $cell in ${dt}s -> shard $SHARD"
-log "done $cell -> shard $SHARD"

@@ -80,12 +80,20 @@ def main(argv=None):
         by_caller.setdefault(r["caller"], []).append(r)
     status = load_status(args.sample_dir)
 
+    # Only score callers that ACTUALLY RAN this cell. status.tsv has one row per
+    # requested caller (run_sample.sh), so it is the authoritative "ran" set. This
+    # matters under the per-caller LOD split (run_sample is invoked with a single
+    # --callers): without it, score_cell would emit a detected=0 row for every
+    # caller that did NOT run, and the merged sweep would carry 5 bogus zero rows
+    # per cell per arm — collapsing detection rates and corrupting the LOD fits.
+    ran = [c for c in parsers.CALLERS if c in status or c in by_caller]
+
     new = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
     with open(args.out, "a", newline="") as fh:
         w = csv.writer(fh, delimiter="\t")
         if new:
             w.writerow(COLUMNS)
-        for caller in parsers.CALLERS:
+        for caller in ran:
             crecs = by_caller.get(caller, [])
             m = best_match(crecs, t5, t3)
             st, secs = status.get(caller, ("", ""))
@@ -106,7 +114,8 @@ def main(argv=None):
                             t["rep"], t["seed"], t5, t3, tsvlen, 0, len(crecs),
                             "", "", "", "", "", "", "", "",
                             ("0" if caller == "mitohpc" else "NA"), st, secs])
-    sys.stderr.write("[score_cell] arm=%s -> %d caller rows\n" % (args.arm, len(parsers.CALLERS)))
+    sys.stderr.write("[score_cell] arm=%s -> %d caller rows (%s)\n"
+                     % (args.arm, len(ran), ",".join(ran) or "none"))
     return 0
 
 

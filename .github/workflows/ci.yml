@@ -38,6 +38,9 @@ jobs:
       - name: Shard-planner unit tests
         run: python3 test/test_plan_shards.py
 
+      - name: Score-cell unit tests
+        run: python3 test/test_score_cell.py
+
       - name: Post-process CLI smoke (no Docker)
         run: |
           python3 -c "import ast,sys; ast.parse(open('pipeline/postprocess.py').read())"
@@ -54,7 +57,7 @@ jobs:
             pipeline/lod/gen_cell.py pipeline/lod/score_cell.py pipeline/lod/make_lod_report.py \
             test/test_parsers.py test/check_scenarios.py test/test_check_scenarios.py \
             test/test_sv_eval.py test/test_lod_stats.py \
-            test/plan_shards.py test/test_plan_shards.py
+            test/plan_shards.py test/test_plan_shards.py test/test_score_cell.py
 
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck

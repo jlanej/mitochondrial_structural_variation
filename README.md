@@ -248,14 +248,27 @@ injective per-cell seed), runs all callers under **two input arms** — `pipelin
 **30 bp** summed breakpoint error). The default grid is **10 heteroplasmies × 4
 depths (250–2000×) × 10 replicates × 2 deletions = 800 cells**; heteroplasmy is
 dense at the low end (where the LOD lives) and depth tops out at a real-world
-2000× to expose how depth warps runtime. Each SLURM array task runs a chunk of
-cells (default 12) concurrently across its 24 cores — `--cpus-per-task 24`,
-`THREADS/TPC = 24/2 = 12` cells at once — so 800 cells fan out to ~67 unthrottled
-tasks. The manifest is **depth-interleaved** so every task carries a balanced mix
-of cheap 250× and expensive 2000× cells. A background **heartbeat** logs each
-task's `done/total` plus every active cell's elapsed time, phase, and finished
-callers (so a hung cell/caller is obvious), and heavy intermediates are deleted
-the moment a cell is scored. A dependent job aggregates the sweep:
+2000× to expose how depth warps runtime.
+
+Work is split **per (caller, depth)**: one SLURM array per combination, named
+`lod-<caller>-d<depth>`, each running only its caller so no single slow caller
+(eKLIPse) can monopolise a submission. Within a task, cells run concurrently
+across the 24 cores (`--cpus-per-task 24`, `THREADS/TPC = 24/2 = 12` at once); the
+800-cell grid fans out to ~408 tasks. Jobs are uncapped unless the projected total
+exceeds `--max-jobs` (500), at which point cells-per-job is raised (iterations
+distributed) until it fits, one caller per job. **Consolidation cascades** as
+results land — `cons-<caller>-d<depth>` after each array (prints that scope's
+runtime + a rough remaining-wall projection, the realtime cancel signal),
+`cons-<caller>` after a caller's depths, and `lod-final` after everything — so a
+cumulative report appears as soon as the first caller finishes a depth.
+
+Each concurrent cell gets its own `XDG_CACHE_HOME` (Apptainer binds the shared
+host `$HOME`, so otherwise every `micromamba run` cluster-wide serializes on one
+`mamba/proc` lock — the failure mode that once stalled the whole sweep). A
+background **heartbeat** logs each task's `done/total` plus every active cell's
+elapsed time, phase, and finished callers (so a hung cell/caller is obvious), and
+heavy intermediates are deleted the moment a cell is scored. The consolidations
+aggregate the sweep:
 
 * per `(caller, depth, deletion, arm)`: a detection-probability curve over
   heteroplasmy → **LOD50 / LOD95** (Firth-penalized logistic, separation-robust;
@@ -313,9 +326,9 @@ slurm/
   run_mito_sv.sh           cohort HPC launcher (the entry point)
   sample_job.sbatch        array task = one sample
   consolidate.sbatch       cohort summary job
-  run_lod.sh               LOD-sweep HPC launcher
-  lod_array.sbatch         LOD array task = a chunk of cells (24-thread)
-  lod_consolidate.sbatch   LOD analyze + report job
+  run_lod.sh               LOD-sweep launcher (per-(caller,depth) arrays + cascade)
+  lod_array.sbatch         LOD array task = a chunk of cells for ONE caller (24-thread)
+  lod_consolidate.sbatch   LOD analyze + report; fires per-(caller,depth), per-caller, final
 test/
   test_parsers.py          parser unit tests
   test_sv_eval.py          scenario categorization + accuracy-metric unit tests

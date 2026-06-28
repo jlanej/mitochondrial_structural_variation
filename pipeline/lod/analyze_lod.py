@@ -54,6 +54,27 @@ def _fmt(v):
         "%.4f" % v if isinstance(v, float) else str(v))
 
 
+def _atomic(path, write_rows):
+    """Write rows to <path> atomically (tmp + os.replace). Intermediate
+    consolidations run concurrently and one may re-write these files while
+    lod_consolidate.sbatch's scope read-out reads them; the rename guarantees a
+    reader always sees a complete file, never a truncated one."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="") as fh:
+        write_rows(csv.writer(fh, delimiter="\t"))
+    os.replace(tmp, path)
+
+
+def _row_dv(r):
+    """(depth:int, vaf:float) for a sweep row, or None if it is malformed. Guards
+    against a torn row from a shard a still-running array is mid-write (the concat
+    drops most of these, but skip any that slip through rather than crashing)."""
+    try:
+        return int(r["depth"]), float(r["vaf"])
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -66,7 +87,10 @@ def main(argv=None):
     # group by (arm,caller,variant,depth,vaf) -> detected list, passed list, runtimes
     cells = defaultdict(lambda: {"det": [], "pass": [], "rt": []})
     for r in rows:
-        key = (r["arm"], r["caller"], r["variant"], int(r["depth"]), float(r["vaf"]))
+        dv = _row_dv(r)
+        if dv is None:
+            continue
+        key = (r["arm"], r["caller"], r["variant"], dv[0], dv[1])
         c = cells[key]
         c["det"].append(1 if r.get("detected") == "1" else 0)
         if r.get("passed") not in ("NA", "", None):
@@ -75,8 +99,7 @@ def main(argv=None):
         if rt is not None and r.get("status") == "ok":
             c["rt"].append(rt)
 
-    with open(os.path.join(args.outdir, "lod_cells.tsv"), "w", newline="") as fh:
-        w = csv.writer(fh, delimiter="\t")
+    def _w_cells(w):
         w.writerow(CELL_COLS)
         for (arm, caller, variant, depth, vaf) in sorted(cells):
             c = cells[(arm, caller, variant, depth, vaf)]
@@ -87,15 +110,18 @@ def main(argv=None):
             mrt = (sum(c["rt"]) / len(c["rt"])) if c["rt"] else None
             w.writerow([arm, caller, variant, depth, _fmt(vaf), k, n, _fmt(p),
                         _fmt(lo), _fmt(hi), pk, _fmt(prate), _fmt(mrt)])
+    _atomic(os.path.join(args.outdir, "lod_cells.tsv"), _w_cells)
 
     # group by (arm,caller,variant,depth) -> (vaf, detected) units for fitting
     groups = defaultdict(list)
     for r in rows:
-        groups[(r["arm"], r["caller"], r["variant"], int(r["depth"]))].append(
-            (float(r["vaf"]), 1 if r.get("detected") == "1" else 0))
+        dv = _row_dv(r)
+        if dv is None:
+            continue
+        groups[(r["arm"], r["caller"], r["variant"], dv[0])].append(
+            (dv[1], 1 if r.get("detected") == "1" else 0))
 
-    with open(os.path.join(args.outdir, "lod_fits.tsv"), "w", newline="") as fh:
-        w = csv.writer(fh, delimiter="\t")
+    def _w_fits(w):
         w.writerow(FIT_COLS)
         for (arm, caller, variant, depth) in sorted(groups):
             units = groups[(arm, caller, variant, depth)]
@@ -117,6 +143,7 @@ def main(argv=None):
                         _fmt(emp["transition_hi"]), _fmt(emp["reliable_lo"]),
                         1 if near_sep else 0,
                         _fmt(lod50), _fmt(lod95), _fmt(lo95), _fmt(hi95)])
+    _atomic(os.path.join(args.outdir, "lod_fits.tsv"), _w_fits)
 
     # ---- runtime summary, broken down by depth (how depth warps runtime) -----
     # Keys: (arm, depth) where arm in {all,pipeline,circular} and depth in
@@ -149,13 +176,13 @@ def main(argv=None):
     def _depth_key(d):
         return (0, 0) if d == "all" else (1, int(d))
 
-    with open(os.path.join(args.outdir, "lod_runtime.tsv"), "w", newline="") as fh:
-        w = csv.writer(fh, delimiter="\t")
+    def _w_runtime(w):
         w.writerow(RT_COLS)
         for (arm, depth, caller) in sorted(rt, key=lambda k: (k[0], _depth_key(k[1]), k[2])):
             row = _rt_row(arm, depth, caller, rt[(arm, depth, caller)])
             if row:
                 w.writerow(row)
+    _atomic(os.path.join(args.outdir, "lod_runtime.tsv"), _w_runtime)
 
     sys.stderr.write("[analyze_lod] %d cells, %d (caller,depth) fits, "
                      "%d runtime groups -> %s\n"
