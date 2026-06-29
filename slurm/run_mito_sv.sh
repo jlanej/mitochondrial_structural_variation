@@ -33,19 +33,17 @@ IMAGE="${MITO_SV_IMAGE:-ghcr.io/jlanej/mitochondrial_structural_variation:latest
 SIF="${MITO_SV_SIF:-}"                 # prebuilt .sif; else pulled from $IMAGE
 EXTS="${MITO_SV_EXTS:-cram}"           # comma list: cram,bam
 CALLERS="${MITO_SV_CALLERS:-all}"      # comma list or 'all' -> one array each
-THREADS="${MITO_SV_THREADS:-4}"
 REFERENCE="${MITO_SV_REFERENCE:-}"     # explicit CRAM reference (optional)
 STRICT=0
 LOCAL=0
 DRYRUN=0
-# SLURM resource knobs
+# SLURM resource knobs — one generous profile for every job (extract, prep,
+# callers, consolidation): 24 threads, 64 GB, 10 h walltime.
 PARTITION="${MITO_SV_PARTITION:-}"
 ACCOUNT="${MITO_SV_ACCOUNT:-}"
-TIME="${MITO_SV_TIME:-12:00:00}"
-MEM="${MITO_SV_MEM:-16G}"
-PREP_TIME="${MITO_SV_PREP_TIME:-04:00:00}"
-CONS_TIME="${MITO_SV_CONS_TIME:-01:00:00}"
-CONS_MEM="${MITO_SV_CONS_MEM:-8G}"
+THREADS="${MITO_SV_THREADS:-24}"
+MEM="${MITO_SV_MEM:-64G}"
+TIME="${MITO_SV_TIME:-10:00:00}"
 MAX_ARRAY="${MITO_SV_MAX_ARRAY:-50}"   # max concurrent tasks PER array (%N)
 
 ALL_CALLERS="mitohpc eklipse mitosalt splicebreak2 mitomut mitoseek"
@@ -122,7 +120,7 @@ done
 n="$(wc -l < "$manifest" | tr -d ' ')"
 [[ "$n" -gt 0 ]] || die "no *.{$EXTS} files found under $INPUT_DIR"
 log "discovered $n sample(s); callers: ${CALA[*]}"
-log "-> mito-prep[1-$n] + ${#CALA[@]} caller array(s) [1-$n each, %$MAX_ARRAY] + $(( ${#CALA[@]} + 1 )) consolidations; out=$OUTDIR"
+log "-> mito-extract[1-$n] + mito-prep[1-$n] + ${#CALA[@]} caller array(s) [1-$n each, %$MAX_ARRAY] + $(( ${#CALA[@]} + 1 )) consolidations; ${THREADS}c/${MEM}/${TIME} each; out=$OUTDIR"
 
 # ---- resolve the container image -----------------------------------------
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 not found on PATH"; }
@@ -143,8 +141,9 @@ export MITO_SV_OUTDIR="$OUTDIR" MITO_SV_MANIFEST="$manifest" \
 
 # ---- DRY-RUN --------------------------------------------------------------
 if [[ "$DRYRUN" == 1 ]]; then
-    log "DRY-RUN plan:"
-    log "  array  mito-prep[1-$n%$MAX_ARRAY]  (preprocess each CRAM once)"
+    log "DRY-RUN plan (${THREADS}c/${MEM}/${TIME} per job):"
+    log "  array  mito-extract[1-$n%$MAX_ARRAY]  (chrM out of each CRAM, once, idempotent)"
+    log "  array  mito-prep[1-$n%$MAX_ARRAY]     aftercorr:mito-extract (realign cached slice)"
     for c in "${CALA[@]}"; do
         log "  array  mito-${c} [1-$n%$MAX_ARRAY]  aftercorr:mito-prep"
         log "  cons   cons-${c}  afterany:mito-${c}  (refresh cohort_sv_summary.html)"
@@ -156,6 +155,9 @@ fi
 # ---- LOCAL mode: run here, sequentially (no scheduler) --------------------
 if [[ "$LOCAL" == 1 ]]; then
     resolve_sif; export MITO_SV_SIF="$SIF"; mkdir -p "$OUTDIR/logs"
+    for ((t=1; t<=n; t++)); do
+        log "LOCAL extract $t/$n"; SLURM_ARRAY_TASK_ID="$t" bash "$HERE/extract_job.sbatch"
+    done
     for ((t=1; t<=n; t++)); do
         log "LOCAL prep $t/$n"; SLURM_ARRAY_TASK_ID="$t" bash "$HERE/prep_job.sbatch"
     done
@@ -174,26 +176,30 @@ fi
 # ---- SLURM mode -----------------------------------------------------------
 need sbatch; resolve_sif; export MITO_SV_SIF="$SIF"
 mkdir -p "$OUTDIR/logs"
-common=(--parsable)
+common=(--parsable --cpus-per-task "$THREADS" --mem "$MEM" --time "$TIME")
 [[ -n "$PARTITION" ]] && common+=(--partition "$PARTITION")
 [[ -n "$ACCOUNT" ]]   && common+=(--account "$ACCOUNT")
-conscommon=(--cpus-per-task 2 --mem "$CONS_MEM" --time "$CONS_TIME")
 
+# initial chrM extraction: decode each (WGS) CRAM ONCE, idempotently
+extract_id="$(sbatch "${common[@]}" --job-name mito-extract --array "1-${n}%${MAX_ARRAY}" \
+    --output "$OUTDIR/logs/extract_%A_%a.out" "$HERE/extract_job.sbatch")"
+log "submitted mito-extract: $extract_id"
+
+# realign each cached chrM slice (off the small BAM, not the CRAM)
 prep_id="$(sbatch "${common[@]}" --job-name mito-prep --array "1-${n}%${MAX_ARRAY}" \
-    --cpus-per-task "$THREADS" --mem "$MEM" --time "$PREP_TIME" \
+    --dependency "aftercorr:${extract_id}" \
     --output "$OUTDIR/logs/prep_%A_%a.out" "$HERE/prep_job.sbatch")"
-log "submitted mito-prep: $prep_id"
+log "submitted mito-prep: $prep_id (aftercorr:$extract_id)"
 
 deps=""   # all caller arrays + per-caller cons, for the final job
 for c in "${CALA[@]}"; do
     export MITO_SV_CALLER="$c"
     aid="$(sbatch "${common[@]}" --job-name "mito-$c" --array "1-${n}%${MAX_ARRAY}" \
         --dependency "aftercorr:${prep_id}" \
-        --cpus-per-task "$THREADS" --mem "$MEM" --time "$TIME" \
         --output "$OUTDIR/logs/${c}_%A_%a.out" "$HERE/sample_job.sbatch")"
     log "submitted mito-$c: $aid (aftercorr:$prep_id)"
     export MITO_SV_CONS_SCOPE="$c" MITO_SV_CONS_FINAL=0
-    cid="$(sbatch "${common[@]}" "${conscommon[@]}" --job-name "cons-$c" \
+    cid="$(sbatch "${common[@]}" --job-name "cons-$c" \
         --dependency "afterany:${aid}" \
         --output "$OUTDIR/logs/cons_${c}_%j.out" "$HERE/consolidate.sbatch")"
     log "  -> cons-$c: $cid (after mito-$c)"
@@ -201,7 +207,7 @@ for c in "${CALA[@]}"; do
 done
 
 export MITO_SV_CONS_SCOPE="final" MITO_SV_CONS_FINAL=1
-fin="$(sbatch "${common[@]}" "${conscommon[@]}" --job-name mito-final \
+fin="$(sbatch "${common[@]}" --job-name mito-final \
     --dependency "afterany:${deps}" \
     --output "$OUTDIR/logs/final_%j.out" "$HERE/consolidate.sbatch")"
 log "submitted mito-final: $fin"

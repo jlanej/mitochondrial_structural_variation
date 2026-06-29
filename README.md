@@ -81,18 +81,24 @@ export MITO_SV_IMAGE=ghcr.io/jlanej/mitochondrial_structural_variation:latest
 ```
 
 That submits a **per-caller** pipeline so no single slow caller (e.g. eKLIPse) can
-hold up the rest, and results stream in as each caller completes:
-1. **`mito-prep`** — one array task per sample: CRAM/BAM → chrM BAM + FASTQ, decoded
-   **once** and reused by every caller.
-2. **`mito-<caller>`** — one array *per caller* over all samples, `aftercorr` on
+hold up the rest, and results stream in as each caller completes. Every job uses one
+generous profile — **24 threads, 64 GB, 10 h walltime** (tune with `--threads /
+--mem / --time`):
+1. **`mito-extract`** — one array task per sample: pull chrM out of the (whole-genome)
+   CRAM, **once**, into `$OUT/chrM/<sample>.chrM.bam`. This is the only stage that
+   decodes the big CRAM, and it is **idempotent** — an already-valid slice is skipped,
+   so re-runs never re-touch the CRAM.
+2. **`mito-prep`** — `aftercorr` on extract: realign each cached slice to rCRS → chrM
+   BAM + FASTQ in `prepared/<sample>/` (works off the small BAM, not the CRAM).
+3. **`mito-<caller>`** — one array *per caller* over all samples, `aftercorr` on
    `mito-prep` (a sample's caller starts the moment *its* prep is done). Each writes
    to an isolated `by_caller/<caller>/<sample>/`.
-3. **`cons-<caller>`** — fires after each caller finishes **all** its CRAMs:
+4. **`cons-<caller>`** — fires after each caller finishes **all** its CRAMs:
    rebuilds the cohort tables **and** the interactive
    [`cohort_sv_summary.html`](docs/cohort_sv_summary.html), so the summary appears
    as soon as the first caller completes and fills in as the rest land.
-4. **`mito-final`** — after everything: the authoritative summary, then drops the
-   bulky prepared inputs.
+5. **`mito-final`** — after everything: the authoritative summary, then drops the
+   bulky `prepared/` inputs (the `chrM/` slices are kept for fast idempotent re-runs).
 
 Concurrent cells/consolidations each get an isolated `XDG_CACHE_HOME` (Apptainer
 binds the shared host `$HOME`, so otherwise every `micromamba run` serialises on
@@ -104,7 +110,8 @@ Results land under `--outdir`:
 ```
 mito_sv_out/
 ├── samples.manifest.tsv
-├── prepared/<sample>/            # chrM BAM + FASTQ (removed by mito-final)
+├── chrM/<sample>.chrM.bam(.bai)  # chrM sliced from the CRAM once (kept; idempotent)
+├── prepared/<sample>/            # realigned chrM BAM + FASTQ (removed by mito-final)
 ├── by_caller/<caller>/<sample>/  # <caller>/ outputs + status.tsv
 ├── cohort_sv_calls.tsv           # every normalised call, long format
 ├── cohort_common_deletion.tsv    # sample × caller: common deletion detected?
@@ -357,8 +364,9 @@ pipeline/
     analyze_lod.py         sweep -> lod_cells.tsv + lod_fits.tsv + lod_runtime.tsv
     make_lod_report.py     interactive LOD report generator
 slurm/
-  run_mito_sv.sh           cohort HPC launcher (preprocess-once -> per-caller arrays)
-  prep_job.sbatch          array task = preprocess one sample (CRAM -> chrM BAM/FASTQ)
+  run_mito_sv.sh           cohort HPC launcher (extract-once -> per-caller arrays)
+  extract_job.sbatch       array task = slice chrM from one CRAM, once, idempotent
+  prep_job.sbatch          array task = realign one sample's cached chrM slice to rCRS
   sample_job.sbatch        array task = one sample x ONE caller (prepared inputs)
   consolidate.sbatch       cohort tables + cohort_sv_summary.html; per-caller + final
   run_lod.sh               LOD-sweep launcher (per-(caller,depth) arrays + cascade)

@@ -23,11 +23,19 @@ REF="${MITO_SV_REF:-/opt/assets/rCRS.chrM.fa}"
 THREADS=4
 REFERENCE=""          # optional explicit CRAM reference
 MT_CONTIG=""          # optional override of mito contig name
+EXTRACT_ONLY=""       # if set: slice chrM -> this BAM (sorted+indexed) and stop
 
 usage() {
     cat >&2 <<EOF
 Usage: preprocess.sh --input <cram|bam> --sample <name> --outdir <dir>
                      [--reference <fasta>] [--threads N] [--mt-contig NAME]
+                     [--extract-only <out.bam>]
+
+  --extract-only OUT   slice the mito contig out of <input> (decoding the CRAM
+                       once, the expensive WGS-touching step), write a sorted +
+                       indexed BAM to OUT, and exit BEFORE realigning. Used by the
+                       initial 'mito-extract' SLURM stage so the big CRAM is read
+                       exactly once and cached in the output dir.
 EOF
     exit 2
 }
@@ -40,6 +48,7 @@ while [[ $# -gt 0 ]]; do
         --reference) REFERENCE="$2"; shift 2;;
         --threads)   THREADS="$2"; shift 2;;
         --mt-contig) MT_CONTIG="$2"; shift 2;;
+        --extract-only) EXTRACT_ONLY="$2"; shift 2;;
         -h|--help)   usage;;
         *) die "unknown arg: $1";;
     esac
@@ -128,6 +137,18 @@ fi
 nreads="$(run samtools view -c "$raw" || echo 0)"
 log "mito reads extracted: $nreads"
 [[ "$nreads" -gt 0 ]] || die "no reads on contig '$mt' — wrong contig or empty input"
+
+# --extract-only: persist the chrM slice (sorted+indexed) and stop. The realign
+# (steps 3-4) happens later, off this small cached BAM, never touching the CRAM.
+if [[ -n "$EXTRACT_ONLY" ]]; then
+    mkdir -p "$(dirname "$EXTRACT_ONLY")"
+    run samtools sort -@ "$THREADS" -o "$EXTRACT_ONLY" "$raw"
+    run samtools index -@ "$THREADS" "$EXTRACT_ONLY"
+    rm -f "$raw"
+    log "extract-only: $nreads mito reads ($mt) -> $EXTRACT_ONLY"
+    echo "$EXTRACT_ONLY"
+    exit 0
+fi
 
 ###############################################################################
 # 3. mito reads -> FASTQ (name-collated)
