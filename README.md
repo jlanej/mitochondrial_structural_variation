@@ -81,18 +81,30 @@ export MITO_SV_IMAGE=ghcr.io/jlanej/mitochondrial_structural_variation:latest
 ```
 
 That submits a **per-caller** pipeline so no single slow caller (e.g. eKLIPse) can
-hold up the rest, and results stream in as each caller completes. Every job uses one
-generous profile — **24 threads, 64 GB, 10 h walltime** (tune with `--threads /
---mem / --time`):
-1. **`mito-extract`** — one array task per sample: pull chrM out of the (whole-genome)
-   CRAM, **once**, into `$OUT/chrM/<sample>.chrM.bam`. This is the only stage that
-   decodes the big CRAM, and it is **idempotent** — an already-valid slice is skipped,
-   so re-runs never re-touch the CRAM.
+hold up the rest, and results stream in as each caller completes. The compute jobs
+(extract / prep / callers) use one generous profile — **24 threads, 64 GB, 10 h
+walltime** (tune with `--threads / --mem / --time`); the lightweight consolidations
+run on **2 threads / 16 GB / 2 h** (`MITO_SV_CONS_{CPUS,MEM,TIME}`):
+1. **`mito-extract`** — pull chrM out of the (whole-genome) CRAM, **once**, into
+   `$OUT/chrM/<sample>.chrM.bam`. This is the only stage that decodes the big CRAM,
+   and it is **idempotent** — an already-valid slice is skipped, so re-runs never
+   re-touch the CRAM.
 2. **`mito-prep`** — `aftercorr` on extract: realign each cached slice to rCRS → chrM
    BAM + FASTQ in `prepared/<sample>/` (works off the small BAM, not the CRAM).
-3. **`mito-<caller>`** — one array *per caller* over all samples, `aftercorr` on
-   `mito-prep` (a sample's caller starts the moment *its* prep is done). Each writes
-   to an isolated `by_caller/<caller>/<sample>/`.
+3. **`mito-<caller>`** — one array *per caller*, `aftercorr` on `mito-prep` (a chunk's
+   caller starts the moment *its* prep is done). Each writes to an isolated
+   `by_caller/<caller>/<sample>/`.
+
+Every stage is submitted as a **fixed number of array tasks** (`--chunks`, default
+100) rather than one task per sample: each task *strides* over the manifest and
+processes its slice of the cohort sequentially (`ceil(n/chunks)` samples each). So
+the submitted-job count is **constant** (`~8·chunks + 7`, e.g. ~807 for six callers)
+no matter how large the cohort grows — a 2 000-sample run submits 807 jobs, not
+16 007, staying well under `AssocMaxSubmitJobLimit`. The trade-off is walltime: a
+task runs its samples back-to-back, so raise `--time` for big cohorts (or raise
+`--chunks` to keep slices small, as long as `8·chunks + 7` stays under the limit —
+the launcher refuses to submit otherwise). A single sample failing inside a chunk is
+logged and skipped; the chunk's other samples still flow downstream.
 4. **`cons-<caller>`** — fires after each caller finishes **all** its CRAMs:
    rebuilds the cohort tables **and** the interactive
    [`cohort_sv_summary.html`](docs/cohort_sv_summary.html), so the summary appears
@@ -102,8 +114,11 @@ generous profile — **24 threads, 64 GB, 10 h walltime** (tune with `--threads 
 
 Concurrent cells/consolidations each get an isolated `XDG_CACHE_HOME` (Apptainer
 binds the shared host `$HOME`, so otherwise every `micromamba run` serialises on
-one cache lock); consolidations are flock-serialised. Job count stays bounded by a
-per-array `%N` concurrency cap (`--max-array`, default 50).
+one cache lock); consolidations are flock-serialised. Running tasks stay bounded by
+a global concurrency budget (`--max-concurrent`, default 500) that is split evenly
+across the caller arrays — so their combined `%N` throttles sum to ~500 rather than
+500 per caller, which keeps the cluster busy without tripping the scheduler's
+submit-job limit.
 
 Results land under `--outdir`:
 
