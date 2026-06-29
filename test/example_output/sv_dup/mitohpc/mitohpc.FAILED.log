@@ -1,5 +1,5 @@
-[mitohpc 02:55:01] running MitoHPC callSV on sv_dup
+[mitohpc 02:21:27] running MitoHPC callSV on sv_dup
 [callsv] sv_dup -> /out/sv_dup/mitohpc/sv_dup.sv.vcf (2 records)
 [callSV] sv_dup -> /out/sv_dup/mitohpc/sv_dup.sv.vcf (2 records)
-[mitohpc 02:55:02] calls -> mitohpc.sv.tab
-[mitohpc 02:55:02] done
+[mitohpc 02:21:28] calls -> mitohpc.sv.tab
+[mitohpc 02:21:28] done
