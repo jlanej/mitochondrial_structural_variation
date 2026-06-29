@@ -1,5 +1,5 @@
-[mitohpc 03:23:37] running MitoHPC callSV on NA12775
+[mitohpc 15:22:17] running MitoHPC callSV on NA12775
 [callsv] NA12775 -> /out/NA12775/mitohpc/NA12775.sv.vcf (1 records)
 [callSV] NA12775 -> /out/NA12775/mitohpc/NA12775.sv.vcf (1 records)
-[mitohpc 03:23:40] calls -> mitohpc.sv.tab
-[mitohpc 03:23:40] done
+[mitohpc 15:22:20] calls -> mitohpc.sv.tab
+[mitohpc 15:22:20] done
