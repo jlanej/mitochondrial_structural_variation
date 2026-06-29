@@ -389,6 +389,21 @@ else
     warn "cohort tables missing — skipping report"
 fi
 
+###############################################################################
+# Cohort global-metrics summary -> docs/cohort_sv_summary.html (CI commits it).
+# Real-cohort view (MitoBreak known/novel, per-caller call-count distributions);
+# a hard gate so a broken cohort_report.py fails CI.
+###############################################################################
+note "generating docs/cohort_sv_summary.html (cohort global metrics)"
+if python3 "$REPO/pipeline/cohort_report.py" --root "$OUT" \
+        --out "$REPO/docs/cohort_sv_summary.html" \
+        --image "$IMAGE" --generated "${MITO_SV_GENERATED:-$(date -u +%Y-%m-%d)}"; then
+    [[ -s "$REPO/docs/cohort_sv_summary.html" ]] && echo "wrote docs/cohort_sv_summary.html" \
+        || err "cohort_sv_summary.html empty"
+else
+    err "cohort report generation failed"
+fi
+
 note "result"
 echo "warnings: $warns"
 if [[ "$fail" == 0 ]]; then echo "SMOKE TEST PASSED"; exit 0; else echo "SMOKE TEST FAILED"; exit 1; fi

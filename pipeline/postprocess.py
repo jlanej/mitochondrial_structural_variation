@@ -30,6 +30,11 @@ CALL_COLUMNS = ["sample", "caller", "sv_type", "bp5", "bp3", "svlen",
                 "support", "het", "common_deletion", "extra"]
 
 
+# directory names under the output root that are NOT samples
+_NON_SAMPLE = {"by_caller", "prepared", "logs", "shards", "work", "progress",
+               "manifests", "lod_report", "refcache"}
+
+
 def _looks_like_sample_dir(path):
     if not os.path.isdir(path):
         return False
@@ -38,13 +43,30 @@ def _looks_like_sample_dir(path):
     return any(os.path.isdir(os.path.join(path, c)) for c in CALLERS)
 
 
-def discover_sample_dirs(root):
-    out = []
+def discover_pairs(root):
+    """[(sample_name, dir)] over BOTH the classic per-sample layout
+    (root/<sample>/) and the per-caller cascade's root/by_caller/<caller>/<sample>/
+    (one caller each — a sample then appears once per caller that ran)."""
+    pairs = []
+    bc_samples = set()
+    bc = os.path.join(root, "by_caller")
+    if os.path.isdir(bc):
+        for caller in sorted(os.listdir(bc)):
+            cd = os.path.join(bc, caller)
+            if os.path.isdir(cd):
+                for s in sorted(os.listdir(cd)):
+                    sd = os.path.join(cd, s)
+                    if _looks_like_sample_dir(sd):
+                        pairs.append((s, sd)); bc_samples.add(s)
     for name in sorted(os.listdir(root)):
+        # skip non-sample dirs AND any sample already covered by by_caller — otherwise
+        # a leftover classic dir from a prior run would be parsed too and double-count.
+        if name in _NON_SAMPLE or name in bc_samples:
+            continue
         p = os.path.join(root, name)
         if _looks_like_sample_dir(p):
-            out.append(p)
-    return out
+            pairs.append((name, p))
+    return pairs
 
 
 def _fmt(v):
@@ -165,29 +187,33 @@ def main(argv=None):
 
     if args.root:
         root = os.path.abspath(args.root)
-        sample_dirs = discover_sample_dirs(root)
+        pairs = discover_pairs(root)
         out_dir = args.out_dir or root
     else:
         sd = os.path.abspath(args.sample_dir)
-        sample_dirs = [sd]
+        name = args.sample or os.path.basename(os.path.normpath(sd))
+        pairs = [(name, sd)]
         out_dir = args.out_dir or os.path.dirname(sd)
 
     os.makedirs(out_dir, exist_ok=True)
-    if not sample_dirs:
+    if not pairs:
         sys.stderr.write("postprocess: no sample directories found\n")
 
     records = []
-    samples = []
-    sample_pairs = []
-    for sd in sample_dirs:
-        name = args.sample if (args.sample_dir and args.sample) else \
-            os.path.basename(os.path.normpath(sd))
-        samples.append(name)
+    samples = []          # unique, in discovery order
+    sample_pairs = []     # every (name, dir) — by_caller yields one per caller
+    for name, sd in pairs:
         sample_pairs.append((name, sd))
+        if name not in samples:
+            samples.append(name)
         # pass_only=True: count only MitoHPC FILTER==PASS rows as calls (its non-PASS rows are
         # detect-and-flag rejections, not calls — see parse_mitohpc). The LOD scorer keeps the raw
         # table for its detected-vs-passed tracking; this is the scenario accuracy cohort only.
-        recs = parsers.parse_sample_dir(sd, name, pass_only=True)
+        try:
+            recs = parsers.parse_sample_dir(sd, name, pass_only=True)
+        except Exception as e:  # noqa: BLE001 — one bad/in-progress dir must not sink the cohort
+            sys.stderr.write("postprocess: WARN %s skipped (%r)\n" % (name, e))
+            continue
         records.extend(recs)
         sys.stderr.write("postprocess: %s -> %d calls\n" % (name, len(recs)))
 

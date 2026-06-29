@@ -41,10 +41,17 @@ jobs:
       - name: Score-cell unit tests
         run: python3 test/test_score_cell.py
 
+      - name: MitoBreak matcher unit tests
+        run: python3 test/test_mitobreak.py
+
+      - name: Cohort-report unit tests
+        run: python3 test/test_cohort_report.py
+
       - name: Post-process CLI smoke (no Docker)
         run: |
           python3 -c "import ast,sys; ast.parse(open('pipeline/postprocess.py').read())"
           python3 pipeline/postprocess.py --help >/dev/null
+          python3 pipeline/cohort_report.py --help >/dev/null
           python3 test/check_scenarios.py --help >/dev/null
           python3 pipeline/lod/make_lod_report.py --help >/dev/null
           python3 pipeline/lod/analyze_lod.py --help >/dev/null
@@ -52,12 +59,14 @@ jobs:
       - name: Python syntax (compile all)
         run: |
           python3 -m py_compile pipeline/postprocess.py pipeline/make_report.py \
-            pipeline/lib/parsers.py pipeline/lib/sv_eval.py \
+            pipeline/cohort_report.py pipeline/lib/parsers.py pipeline/lib/sv_eval.py \
+            pipeline/lib/mitobreak.py \
             pipeline/lod/lod_stats.py pipeline/lod/analyze_lod.py \
             pipeline/lod/gen_cell.py pipeline/lod/score_cell.py pipeline/lod/make_lod_report.py \
             test/test_parsers.py test/check_scenarios.py test/test_check_scenarios.py \
             test/test_sv_eval.py test/test_lod_stats.py \
-            test/plan_shards.py test/test_plan_shards.py test/test_score_cell.py
+            test/plan_shards.py test/test_plan_shards.py test/test_score_cell.py \
+            test/test_mitobreak.py test/test_cohort_report.py
 
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck

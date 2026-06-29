@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mtDNA SV cohort summary</title>
+<style>
+:root{--bg:#0f1117;--panel:#171a23;--panel2:#1f2430;--ink:#e6e9ef;--mut:#9aa4b2;
+--line:#2a2f3a;--accent:#6ea8fe;--good:#2fbf71;--known:#6ea8fe;--novel:#e3a008;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:24px;margin:0 0 4px} h2{font-size:18px;margin:34px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--mut);margin:0 0 18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card .k{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.card .v{font-size:22px;font-weight:600;margin-top:4px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:10px 0}
+.legend{color:var(--mut);font-size:12px;margin:6px 0 2px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line)}
+.tag.ref{color:#b692f6;border-color:#b692f6}
+.controls{margin:8px 0;display:flex;gap:8px;flex-wrap:wrap}
+button.f{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px}
+button.f.on{border-color:var(--accent);color:var(--accent)}
+svg text{fill:var(--ink);font-size:11px}
+svg .gl{stroke:var(--line);stroke-dasharray:2 3;opacity:.5}
+.bar{cursor:pointer}.bar:hover{opacity:.85}
+#tip{position:fixed;pointer-events:none;background:#000d;border:1px solid var(--line);
+border-radius:8px;padding:6px 9px;font-size:12px;color:#fff;opacity:0;transition:opacity .1s;z-index:9}
+.foot{color:var(--mut);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+.warn{background:rgba(229,83,75,.12);border:1px solid #6b2b27;color:#e5534b;border-radius:8px;padding:6px 10px;font-size:12px;margin:8px 0}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+</style></head><body>
+<div class="wrap">
+  <h1>Mitochondrial SV cohort summary</h1>
+  <p class="sub" id="subtitle"></p>
+  <div id="warn-slot"></div>
+  <div class="cards" id="cards"></div>
+
+  <h2>Known-breakpoint fraction per caller</h2>
+  <p class="legend">Of each caller's PASS calls, the % whose breakpoint is catalogued in
+    <b>MitoBreak</b> (a previously-reported mtDNA breakpoint, matched within <b id="mbtol">20</b>&nbsp;bp
+    on both ends). Scale-free, so it compares callers fairly regardless of how many calls each makes:
+    a high fraction means calls that align with the literature; a low fraction flags a noisy call set.
+    Absolute known / novel / called / passed counts are in the table.</p>
+  <div class="panel"><div id="chart-known"></div></div>
+  <div class="panel" style="overflow:auto"><table id="known-table"></table></div>
+
+  <h2>Structural variants called per individual</h2>
+  <p class="legend">Distribution across the cohort of the number of calls per individual, one box per
+    caller (box = IQR, line = median, diamond = mean, whiskers = 1.5×IQR, dots = outliers). Log axis —
+    callers differ by orders of magnitude. Toggle every call vs PASS-only; samples a caller called
+    nothing on count as 0.</p>
+  <div class="controls" id="box-toggle"></div>
+  <div class="panel"><div id="chart-box"></div></div>
+
+  <h2>Calls per individual, by SV type</h2>
+  <p class="legend">Left: the SV-type <b>composition</b> of each caller's PASS calls (scale-free).
+    Right table: the absolute mean number of PASS calls per individual, by type.</p>
+  <div class="panel"><div id="chart-type"></div><div id="type-legend" class="legend"></div></div>
+  <div class="panel" style="overflow:auto"><table id="type-table"></table></div>
+
+  <h2>Common deletion (del4977) detection</h2>
+  <p class="legend">Individuals in which each caller makes a PASS call at the canonical
+    <b id="cdcoord"></b> common deletion, with the median reported heteroplasmy.</p>
+  <div class="panel"><div id="chart-common"></div></div>
+
+  <h2>Reported heteroplasmy (VAF) per caller</h2>
+  <p class="legend">Distribution of the heteroplasmy each caller reports for its PASS calls — callers
+    differ in how they estimate VAF (coverage dosage vs junction fraction).</p>
+  <div class="panel"><div id="chart-vaf"></div></div>
+
+  <div class="foot" id="foot"></div>
+</div>
+<div id="tip"></div>
+<script>
+const P={"data": {"samples": ["NA12718", "NA12748", "NA12775", "spike_del4977_h20", "sv_del4977_h05", "sv_del4977_h30", "sv_del4977_h30_cram", "sv_del6000_h50", "sv_del_13kb", "sv_del_45", "sv_del_500", "sv_del_origin_spares", "sv_dloop", "sv_dup", "sv_dup_large", "sv_dupdel", "sv_homoplasmy", "sv_inv_large", "sv_inv_lowhet", "sv_inv_origin", "sv_inv_small", "sv_invdup", "sv_lowcov", "sv_multidel", "sv_origin", "sv_wt"], "callers": ["mitohpc", "eklipse", "mitosalt", "splicebreak2", "mitomut", "mitoseek"], "types": ["deletion", "duplication"], "per": {"mitohpc": {"n_called": 0, "n_passed": 0, "known": 0, "novel": 0, "known_pct": null, "distinct_known": 0, "common_samples": 0, "common_med_vaf": null, "box_all": {"n": 26, "min": 0, "q1": 0.0, "med": 0.0, "q3": 0.0, "max": 0, "mean": 0.0, "wlo": 0, "whi": 0, "outliers": []}, "box_pass": {"n": 26, "min": 0, "q1": 0.0, "med": 0.0, "q3": 0.0, "max": 0, "mean": 0.0, "wlo": 0, "whi": 0, "outliers": []}, "by_type_mean": {"deletion": 0.0, "duplication": 0.0}, "vaf_box": null}, "eklipse": {"n_called": 18, "n_passed": 18, "known": 7, "novel": 11, "known_pct": 38.9, "distinct_known": 1, "common_samples": 7, "common_med_vaf": 0.0954, "box_all": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.69, "wlo": 0, "whi": 2, "outliers": []}, "box_pass": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.69, "wlo": 0, "whi": 2, "outliers": []}, "by_type_mean": {"deletion": 0.692, "duplication": 0.0}, "vaf_box": {"n": 18, "min": 0.0154, "q1": 0.0924, "med": 0.1177, "q3": 0.1706, "max": 0.5529, "mean": 0.154, "wlo": 0.0154, "whi": 0.2656, "outliers": [0.5529]}}, "mitosalt": {"n_called": 19, "n_passed": 19, "known": 7, "novel": 12, "known_pct": 36.8, "distinct_known": 1, "common_samples": 7, "common_med_vaf": 26.7416, "box_all": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.73, "wlo": 0, "whi": 2, "outliers": []}, "box_pass": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.73, "wlo": 0, "whi": 2, "outliers": []}, "by_type_mean": {"deletion": 0.538, "duplication": 0.192}, "vaf_box": {"n": 19, "min": 4.5741, "q1": 26.4855, "med": 32.4561, "q3": 44.9353, "max": 94.709, "mean": 36.1752, "wlo": 4.5741, "whi": 55.6818, "outliers": [94.709]}}, "splicebreak2": {"n_called": 13, "n_passed": 13, "known": 7, "novel": 6, "known_pct": 53.8, "distinct_known": 1, "common_samples": 7, "common_med_vaf": 0.2848, "box_all": {"n": 26, "min": 0, "q1": 0.0, "med": 0.0, "q3": 1.0, "max": 2, "mean": 0.5, "wlo": 0, "whi": 2, "outliers": []}, "box_pass": {"n": 26, "min": 0, "q1": 0.0, "med": 0.0, "q3": 1.0, "max": 2, "mean": 0.5, "wlo": 0, "whi": 2, "outliers": []}, "by_type_mean": {"deletion": 0.5, "duplication": 0.0}, "vaf_box": {"n": 13, "min": 0.0476, "q1": 0.2473, "med": 0.2848, "q3": 0.5088, "max": 0.8836, "mean": 0.3622, "wlo": 0.0476, "whi": 0.8836, "outliers": []}}, "mitomut": {"n_called": 20, "n_passed": 20, "known": 7, "novel": 13, "known_pct": 35.0, "distinct_known": 1, "common_samples": 7, "common_med_vaf": 0.2501, "box_all": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.77, "wlo": 0, "whi": 2, "outliers": []}, "box_pass": {"n": 26, "min": 0, "q1": 0.0, "med": 1.0, "q3": 1.0, "max": 2, "mean": 0.77, "wlo": 0, "whi": 2, "outliers": []}, "by_type_mean": {"deletion": 0.769, "duplication": 0.0}, "vaf_box": {"n": 20, "min": 0.0024, "q1": 0.1001, "med": 0.2279, "q3": 0.4016, "max": 0.9285, "mean": 0.2532, "wlo": 0.0024, "whi": 0.4335, "outliers": [0.9285]}}, "mitoseek": {"n_called": 18538, "n_passed": 18538, "known": 79, "novel": 18459, "known_pct": 0.4, "distinct_known": 16, "common_samples": 6, "common_med_vaf": null, "box_all": {"n": 26, "min": 9, "q1": 73.5, "med": 90.5, "q3": 99.5, "max": 4526, "mean": 713.0, "wlo": 57, "whi": 135, "outliers": [9, 3940, 3986, 4269, 4526]}, "box_pass": {"n": 26, "min": 9, "q1": 73.5, "med": 90.5, "q3": 99.5, "max": 4526, "mean": 713.0, "wlo": 57, "whi": 135, "outliers": [9, 3940, 3986, 4269, 4526]}, "by_type_mean": {"deletion": 713.0, "duplication": 0.0}, "vaf_box": null}}, "n_samples": 26}, "meta": {"generated": "2026-06-29", "image": "", "n_samples": 26, "mitobreak_tol": 20, "mitobreak_loaded": true, "common_bp5": 8470, "common_bp3": 13447}};const D=P.data,M=P.meta;
+const CAL=D.callers, PER=D.per, S=D.samples, TYPES=D.types;
+const COLOR={mitohpc:'#b692f6',eklipse:'#6ea8fe',mitosalt:'#2fbf71',
+  splicebreak2:'#e3a008',mitomut:'#f178b6',mitoseek:'#4dd0e1'};
+const TCOL={deletion:'#6ea8fe',duplication:'#2fbf71',inversion:'#e3a008',other:'#9aa4b2'};
+const col=c=>COLOR[c]||'#9aa4b2';
+const tip=document.getElementById('tip');
+function showTip(e,h){tip.innerHTML=h;tip.style.opacity=1;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';}
+function hideTip(){tip.style.opacity=0;}
+function lbl(c){return c==='mitohpc'?`<span class="tag ref">${c}</span>`:c;}
+
+document.getElementById('subtitle').textContent =
+  `${M.n_samples} individuals · ${CAL.length} callers · generated ${M.generated}`+(M.image?` · ${M.image}`:'');
+document.getElementById('mbtol').textContent=M.mitobreak_tol;
+document.getElementById('cdcoord').textContent=`m.${M.common_bp5}–${M.common_bp3}`;
+if(!M.mitobreak_loaded) document.getElementById('warn-slot').innerHTML=
+  '<div class="warn">MitoBreak catalogue not found — known/novel split unavailable (all calls shown as novel).</div>';
+
+// ---- cards ----
+const totPass=CAL.reduce((a,c)=>a+PER[c].n_passed,0);
+const totKnown=CAL.reduce((a,c)=>a+PER[c].known,0);
+const commonCallers=CAL.filter(c=>PER[c].common_samples>0).length;
+const mostCommon=CAL.slice().sort((a,b)=>PER[b].common_samples-PER[a].common_samples)[0];
+const cards=[
+  ['Individuals',M.n_samples],['Callers',CAL.length],
+  ['PASS calls (cohort)',totPass],
+  ['Known (MitoBreak)',totPass?`${totKnown} · ${Math.round(100*totKnown/totPass)}%`:'–'],
+  ['Detect common del',`${commonCallers}/${CAL.length} callers`],
+  ['Top common-del caller',mostCommon?`${mostCommon} · ${PER[mostCommon].common_samples}`:'–'],
+];
+document.getElementById('cards').innerHTML=cards.map(([k,v])=>
+  `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+// ---- generic stacked horizontal bar (segments=[{v,color,name}]) ----
+function stackChart(id, rows, unit, xlabel){
+  const W=860,rowH=30,padL=120,padR=70,padT=10,padB=28;
+  const H=padT+padB+rows.length*rowH;
+  const max=Math.max(1,...rows.map(r=>r.segs.reduce((a,s)=>a+s.v,0)));
+  const X=v=>padL+(W-padL-padR)*(v/max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for(let i=0;i<=4;i++){const gx=X(max*i/4);s+=`<line class="gl" x1="${gx}" y1="${padT}" x2="${gx}" y2="${H-padB}"/>`;
+    s+=`<text x="${gx}" y="${H-9}" text-anchor="middle" fill="#9aa4b2">${(max*i/4).toFixed(max<10?1:0)}</text>`;}
+  if(xlabel)s+=`<text x="${(padL+W-padR)/2}" y="${H-0}" text-anchor="middle" fill="#9aa4b2">${xlabel}</text>`;
+  rows.forEach((r,i)=>{let x=padL,y=padT+i*rowH+4;
+    s+=`<text x="${padL-8}" y="${y+13}" text-anchor="end">${r.label}</text>`;
+    r.segs.forEach(seg=>{const w=X(x===padL?seg.v:seg.v)-padL+0;const ww=(W-padL-padR)*(seg.v/max);
+      if(seg.v>0){s+=`<rect class="bar" x="${x}" y="${y}" width="${Math.max(0,ww)}" height="${rowH-12}" fill="${seg.color}" data-t="${encodeURIComponent(`<b>${r.label}</b><br>${seg.name}: ${seg.v}${unit||''}`)}"/>`;}
+      x+=ww;});
+    const tot=r.segs.reduce((a,sg)=>a+sg.v,0);
+    s+=`<text x="${x+6}" y="${y+13}">${r.total!=null?r.total:tot}${unit||''}</text>`;});
+  s+=`</svg>`;const el=document.getElementById(id);el.innerHTML=s;
+  el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
+}
+
+// ---- horizontal percent bar (0-100%); rows=[{label,v,color,tip}] ----
+function pctBar(id, rows){
+  const W=860,rowH=28,padL=120,padR=60,padT=8,padB=24,H=padT+padB+rows.length*rowH;
+  const X=v=>padL+(W-padL-padR)*(Math.max(0,Math.min(100,v))/100);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for(let i=0;i<=4;i++){const gx=X(100*i/4);s+=`<line class="gl" x1="${gx}" y1="${padT}" x2="${gx}" y2="${H-padB}"/>`;
+    s+=`<text x="${gx}" y="${H-8}" text-anchor="middle" fill="#9aa4b2">${100*i/4}%</text>`;}
+  rows.forEach((r,i)=>{const y=padT+i*rowH+4;
+    s+=`<text x="${padL-8}" y="${y+12}" text-anchor="end">${r.label}</text>`;
+    if(r.v!=null){s+=`<rect class="bar" x="${padL}" y="${y}" width="${Math.max(0,X(r.v)-padL)}" height="${rowH-12}" rx="3" fill="${r.color}" data-t="${encodeURIComponent(r.tip)}"/>`;
+      s+=`<text x="${X(r.v)+6}" y="${y+12}">${r.v}%</text>`;}
+    else s+=`<text x="${padL+4}" y="${y+12}" fill="#9aa4b2">no PASS calls</text>`;});
+  s+=`</svg>`;const el=document.getElementById(id);el.innerHTML=s;
+  el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
+}
+
+// ---- horizontal box-and-whisker (items=[{label,color,b}]); log: log1p X-axis ----
+function boxChart(id, items, xlabel, log){
+  items=items.filter(d=>d.b);const el=document.getElementById(id);
+  if(!items.length){el.innerHTML='<span class="legend">no data</span>';return;}
+  const W=860,rowH=34,padL=120,padR=70,padT=10,padB=26,hb=9;
+  const H=padT+padB+items.length*rowH;
+  let mx=0;items.forEach(d=>{mx=Math.max(mx,d.b.whi,...(d.b.outliers||[]));});mx=Math.max(mx||1,0.0001);
+  const tx=v=>log?Math.log1p(Math.max(0,v)):v, tmx=tx(mx);
+  const X=v=>padL+(W-padL-padR)*(tmx>0?tx(v)/tmx:0);
+  // gridline tick values: log -> nice 1/3/10/... ladder; linear -> quarters
+  let ticks=[];
+  if(log){const cand=[0,1,3,10,30,100,300,1000,3000,10000,30000];
+    ticks=cand.filter(v=>v<=mx); if(ticks[ticks.length-1]!==mx)ticks.push(Math.round(mx));}
+  else for(let i=0;i<=4;i++)ticks.push(mx*i/4);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  ticks.forEach(t=>{const gx=X(t);s+=`<line class="gl" x1="${gx}" y1="${padT}" x2="${gx}" y2="${H-padB}"/>`;
+    s+=`<text x="${gx}" y="${H-9}" text-anchor="middle" fill="#9aa4b2">${t<10?(+t).toFixed(t%1?1:0):Math.round(t)}</text>`;});
+  s+=`<text x="${(padL+W-padR)/2}" y="${H-0}" text-anchor="middle" fill="#9aa4b2">${xlabel||''}${log?' (log)':''}</text>`;
+  items.forEach((d,i)=>{const b=d.b,y=padT+i*rowH+rowH/2-2,c=d.color;
+    s+=`<text x="${padL-8}" y="${y+3}" text-anchor="end">${d.label}</text>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y}" x2="${X(b.whi)}" y2="${y}" stroke="${c}" opacity=".6"/>`;
+    s+=`<line x1="${X(b.wlo)}" y1="${y-5}" x2="${X(b.wlo)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<line x1="${X(b.whi)}" y1="${y-5}" x2="${X(b.whi)}" y2="${y+5}" stroke="${c}"/>`;
+    s+=`<rect class="bar" x="${X(b.q1)}" y="${y-hb}" width="${Math.max(1,X(b.q3)-X(b.q1))}" height="${2*hb}" rx="2" fill="${c}" fill-opacity=".28" stroke="${c}" data-t="${encodeURIComponent(`<b>${d.label}</b> (n=${b.n})<br>median ${b.med} · mean ${b.mean}<br>IQR ${b.q1}–${b.q3} · range ${b.min}–${b.max}`)}"/>`;
+    s+=`<line x1="${X(b.med)}" y1="${y-hb}" x2="${X(b.med)}" y2="${y+hb}" stroke="${c}" stroke-width="2"/>`;
+    const mp=X(b.mean);s+=`<path d="M${mp},${y-5} L${mp+5},${y} L${mp},${y+5} L${mp-5},${y} Z" fill="var(--bg)" stroke="${c}" stroke-width="1.5"/>`;
+    (b.outliers||[]).forEach(o=>{s+=`<circle cx="${X(o)}" cy="${y}" r="2.3" fill="${c}" fill-opacity=".7"/>`;});});
+  s+=`</svg>`;el.innerHTML=s;
+  el.querySelectorAll('.bar').forEach(b=>{b.onmousemove=e=>showTip(e,decodeURIComponent(b.dataset.t));b.onmouseleave=hideTip;});
+}
+
+// ---- known-breakpoint fraction (scale-free %; sorted desc) ----
+(function(){
+  const order=CAL.slice().sort((a,b)=>(PER[b].known_pct??-1)-(PER[a].known_pct??-1));
+  pctBar('chart-known', order.map(c=>({label:c,v:PER[c].known_pct,color:col(c),
+    tip:`<b>${c}</b><br>${PER[c].known}/${PER[c].n_passed} PASS calls known<br>${PER[c].novel} novel · ${PER[c].distinct_known} distinct catalogue entries`})));
+  let h=`<thead><tr><th>caller</th><th class="num">called</th><th class="num">passed</th>`
+    +`<th class="num">known</th><th class="num">novel</th><th class="num">known%</th>`
+    +`<th class="num">distinct known</th><th class="num">common-del indiv.</th></tr></thead><tbody>`;
+  order.forEach(c=>{const p=PER[c];h+=`<tr><td>${lbl(c)}</td><td class="num">${p.n_called}</td>`
+    +`<td class="num">${p.n_passed}</td><td class="num">${p.known}</td><td class="num">${p.novel}</td>`
+    +`<td class="num">${p.known_pct==null?'–':p.known_pct+'%'}</td><td class="num">${p.distinct_known}</td>`
+    +`<td class="num">${p.common_samples}${p.common_med_vaf!=null?` <span style="color:var(--mut)">(VAF ${p.common_med_vaf})</span>`:''}</td></tr>`;});
+  document.getElementById('known-table').innerHTML=h+'</tbody>';
+})();
+
+// ---- box: calls per individual (all <-> pass) ----
+let boxMode='pass';
+function renderBox(){
+  const key=boxMode==='pass'?'box_pass':'box_all';
+  const order=CAL.slice().sort((a,b)=>((PER[b][key]||{}).med||0)-((PER[a][key]||{}).med||0));
+  boxChart('chart-box', order.map(c=>({label:c,color:col(c),b:PER[c][key]})), 'calls / individual', true);
+}
+const bt=document.getElementById('box-toggle');
+[['pass','PASS only'],['all','all calls']].forEach(([k,t])=>{const b=document.createElement('button');
+  b.className='f'+(k===boxMode?' on':'');b.textContent=t;
+  b.onclick=()=>{boxMode=k;bt.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderBox();};
+  bt.appendChild(b);});
+renderBox();
+
+// ---- type composition (% mix, scale-free) + absolute mean/indiv table ----
+(function(){
+  const sum=c=>TYPES.reduce((x,t)=>x+(PER[c].by_type_mean[t]||0),0);
+  const order=CAL.slice().sort((a,b)=>sum(b)-sum(a));
+  stackChart('chart-type', order.map(c=>{const s=sum(c);
+    return {label:c, total:'',
+      segs:TYPES.map(t=>({v:s>0?Math.round(1000*(PER[c].by_type_mean[t]||0)/s)/10:0,
+        color:TCOL[t]||'#9aa4b2',name:t}))};}), '%', 'type composition of PASS calls');
+  document.getElementById('type-legend').innerHTML=
+    TYPES.map(t=>`<span class="sw" style="background:${TCOL[t]||'#9aa4b2'}"></span>${t}`).join(' &nbsp; ');
+  let h=`<thead><tr><th>caller</th>`+TYPES.map(t=>`<th class="num">${t}</th>`).join('')
+    +`<th class="num">total / indiv.</th></tr></thead><tbody>`;
+  order.forEach(c=>{h+=`<tr><td>${lbl(c)}</td>`
+    +TYPES.map(t=>`<td class="num">${(PER[c].by_type_mean[t]||0).toFixed(2)}</td>`).join('')
+    +`<td class="num">${sum(c).toFixed(2)}</td></tr>`;});
+  document.getElementById('type-table').innerHTML=h+'</tbody>';
+})();
+
+// ---- common deletion detection (bar of # individuals) ----
+(function(){
+  const order=CAL.slice().sort((a,b)=>PER[b].common_samples-PER[a].common_samples);
+  stackChart('chart-common', order.map(c=>({label:c,total:PER[c].common_samples,
+    segs:[{v:PER[c].common_samples,color:col(c),name:'individuals with del4977'}]})),
+    '', 'individuals (PASS) with the common deletion');
+})();
+
+// ---- VAF distribution per caller ----
+boxChart('chart-vaf', CAL.map(c=>({label:c,color:col(c),b:PER[c].vaf_box})), 'reported heteroplasmy (VAF)');
+
+document.getElementById('foot').innerHTML=
+  `Generated by <code>pipeline/cohort_report.py</code>. Global cohort metrics only — no per-call table, `
+  +`no per-call visualisation. A <b>call</b> is a typed SV (deletion/duplication/inversion) carrying both `
+  +`breakpoints; raw discordant-read evidence is not counted. PASS = the caller's confident set (MitoHPC `
+  +`FILTER==PASS; the other callers' output is already their final call set). "Known" = breakpoint within `
+  +`${M.mitobreak_tol} bp (both ends) of a MitoBreak catalogue entry. Reference: <span class="tag ref">mitohpc</span> (MitoHPC).`;
+</script></body></html>
